@@ -1,0 +1,531 @@
+@import url("https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap");
+
+:root {
+  --paper: #f4f2ec;
+  --card: #fdfcf8;
+  --ink: #2b2a25;
+  --spine: #2e5944;
+  --stamp: #3d5a98;
+  --out: #b94a3a;
+  --star: #d9a036;
+  --muted: #8a867a;
+  --line: #e3e0d6;
+
+  --font-serif: "Gowun Batang", serif;
+  --font-sans: "Noto Sans KR", sans-serif;
+
+  --radius-card: 14px;
+  --radius-pill: 999px;
+  --shadow-card: 0 2px 8px rgba(43, 42, 37, 0.08);
+
+  --tabbar-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2,
+h3,
+.serif {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+/* ---------- App shell ---------- */
+
+#app {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px calc(var(--tabbar-height) + var(--safe-bottom) + 24px);
+}
+
+.view[hidden] {
+  display: none;
+}
+
+.screen-title {
+  font-size: 22px;
+  margin-bottom: 16px;
+}
+
+.empty-state {
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-size: 15px;
+  text-align: center;
+  padding: 48px 24px;
+  line-height: 1.7;
+}
+
+/* ---------- Card (library card texture) ---------- */
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--line);
+  padding: 16px;
+}
+
+.card + .card {
+  margin-top: 12px;
+}
+
+/* ---------- Ink stamp ---------- */
+
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--stamp);
+  color: var(--stamp);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 13px;
+  transform: rotate(-4deg);
+  letter-spacing: 0.02em;
+}
+
+.stamp--out {
+  border-color: var(--out);
+  color: var(--out);
+}
+
+.stamp--muted {
+  border-color: var(--muted);
+  color: var(--muted);
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 20px;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.btn-primary {
+  background: var(--spine);
+  color: var(--paper);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* ---------- Bottom tab bar ---------- */
+
+.tabbar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  height: calc(var(--tabbar-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+.tab {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tab .tab-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.tab[aria-current="true"] {
+  color: var(--spine);
+  font-weight: 700;
+}
+
+.tab-add {
+  flex: 1.1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-add-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--spine);
+  color: var(--paper);
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(46, 89, 68, 0.35);
+  transform: translateY(-14px);
+}
+
+/* ---------- Forms ---------- */
+
+.field-label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.input,
+select.input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+
+.input:focus,
+select.input:focus {
+  outline: none;
+  border-color: var(--spine);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0 0 12px;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.row > .input {
+  flex: 1;
+}
+
+.card h3 {
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+
+.card + .card {
+  margin-top: 16px;
+}
+
+/* ---------- Member badges ---------- */
+
+.member-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.member-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 6px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.member-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: var(--card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.member-chip .remove {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 0 2px;
+}
+
+/* ---------- Library list ---------- */
+
+.lib-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.lib-item:last-child {
+  border-bottom: none;
+}
+
+.lib-name {
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.lib-address {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ---------- Overlay (기록 추가 / 상세) ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+}
+
+.overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+
+.overlay-header .close-btn {
+  font-size: 20px;
+  color: var(--muted);
+  padding: 4px 8px;
+}
+
+.overlay-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px calc(24px + var(--safe-bottom));
+}
+
+.choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--card);
+  font-size: 16px;
+  text-align: left;
+}
+
+.choice-btn .choice-icon {
+  font-size: 26px;
+}
+
+.choice-btn:disabled {
+  opacity: 0.5;
+}
+
+.choice-btn + .choice-btn {
+  margin-top: 12px;
+}
+
+.field-group {
+  margin-bottom: 18px;
+}
+
+.autocomplete-list {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-top: 6px;
+  overflow: hidden;
+  background: var(--card);
+}
+
+.autocomplete-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item .ac-title {
+  font-weight: 500;
+}
+
+.autocomplete-item .ac-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.manual-fields:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.selected-book:not([hidden]) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--spine);
+  border-radius: 10px;
+  margin-top: 8px;
+}
+
+.star-picker {
+  display: flex;
+  gap: 6px;
+  font-size: 26px;
+}
+
+.star-picker button {
+  color: var(--line);
+}
+
+.star-picker button.active {
+  color: var(--star);
+}
+
+.status-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.status-toggle button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.status-toggle button.active {
+  border-color: var(--spine);
+  background: var(--spine);
+  color: var(--paper);
+}
+
+.filter-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 14px;
+}
+
+.filter-chip {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.filter-chip.active {
+  background: var(--spine);
+  border-color: var(--spine);
+  color: var(--paper);
+}
+
+.book-card {
+  cursor: pointer;
+}
+
+/* ---------- Underline note ---------- */
+
+.underline-text {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  line-height: 1.9;
+  background-image: linear-gradient(transparent 70%, rgba(217, 160, 54, 0.4) 70%);
+  background-repeat: no-repeat;
+  background-size: 100% 90%;
+  display: inline;
+}
+
+.underline-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+}

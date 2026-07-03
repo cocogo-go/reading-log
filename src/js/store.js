@@ -1,0 +1,217 @@
+// localStorage 기반 저장소. 서버/로그인 없이 기기에만 보관한다.
+
+const STORAGE_KEY = "rl_data_v1";
+const MAX_MEMBERS = 5;
+
+// 디자인 시스템 팔레트 안에서 구성원을 구분하는 색상들
+export const MEMBER_COLORS = ["#2E5944", "#3D5A98", "#B94A3A", "#D9A036", "#8A867A"];
+
+const DEFAULT_DATA = {
+  members: [],       // { id, name, color }
+  libraries: [],      // { libCode, libName, address, region }
+  books: [],           // { id, memberId, isbn13, title, author, publisher, kdc, libCode, borrowedAt, dueAt, returnedAt, status, rating, read, underlineIds: [] }
+  underlines: [],     // { id, bookId, memberId, text, createdAt }
+  settings: { authKey: "" },
+};
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return structuredClone(DEFAULT_DATA);
+    return { ...structuredClone(DEFAULT_DATA), ...JSON.parse(raw) };
+  } catch {
+    return structuredClone(DEFAULT_DATA);
+  }
+}
+
+let data = load();
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+export function getData() {
+  return data;
+}
+
+export function updateData(mutator) {
+  mutator(data);
+  save();
+}
+
+export function exportBackup() {
+  return JSON.stringify(data, null, 2);
+}
+
+export function importBackup(json) {
+  const parsed = JSON.parse(json);
+  data = { ...structuredClone(DEFAULT_DATA), ...parsed };
+  save();
+}
+
+function makeId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// ---------- 가족 구성원 ----------
+
+export function canAddMember() {
+  return data.members.length < MAX_MEMBERS;
+}
+
+export function addMember(name) {
+  if (!canAddMember()) throw new Error("가족 구성원은 최대 5명까지 등록할 수 있어요.");
+  const color = MEMBER_COLORS[data.members.length % MEMBER_COLORS.length];
+  const member = { id: makeId(), name, color };
+  updateData((d) => d.members.push(member));
+  return member;
+}
+
+export function removeMember(id) {
+  updateData((d) => {
+    d.members = d.members.filter((m) => m.id !== id);
+  });
+}
+
+// ---------- 나의 도서관 ----------
+
+export function getAuthKey() {
+  return data.settings.authKey || "";
+}
+
+export function setAuthKey(key) {
+  updateData((d) => {
+    d.settings.authKey = key;
+  });
+}
+
+export function isLibrarySaved(libCode) {
+  return data.libraries.some((l) => l.libCode === libCode);
+}
+
+export function addLibrary(lib) {
+  if (isLibrarySaved(lib.libCode)) return;
+  updateData((d) => d.libraries.push(lib));
+}
+
+export function removeLibrary(libCode) {
+  updateData((d) => {
+    d.libraries = d.libraries.filter((l) => l.libCode !== libCode);
+  });
+}
+
+// ---------- 책 ----------
+// status: "willBorrow" | "borrowed" | "returned"
+// 지연 여부는 저장하지 않고 dueAt으로 매번 계산한다 (getDisplayStatus 참고).
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function getDisplayStatus(book) {
+  if (book.status === "returned") return "returned";
+  if (book.status === "willBorrow") return "willBorrow";
+  if (book.status === "borrowed") {
+    if (book.dueAt && book.dueAt < todayStr()) return "overdue";
+    return "borrowed";
+  }
+  return book.status;
+}
+
+export function dDay(dueAt) {
+  const diff = Math.round((new Date(dueAt) - new Date(todayStr())) / 86400000);
+  return diff;
+}
+
+// 같은 isbn13으로 가족이 이미 몇 번 빌렸는지 (재대출 포함 전체 이력)
+export function borrowCount(isbn13) {
+  if (!isbn13) return 0;
+  return data.books.filter((b) => b.isbn13 === isbn13).length;
+}
+
+export function addBook(input) {
+  const borrowedAt = input.borrowedAt || todayStr();
+  const book = {
+    id: makeId(),
+    memberId: input.memberId,
+    isbn13: input.isbn13 || "",
+    title: input.title,
+    author: input.author || "",
+    publisher: input.publisher || "",
+    kdc: input.kdc || "",
+    libCode: input.libCode || "",
+    libName: input.libName || "",
+    borrowedAt: input.status === "willBorrow" ? "" : borrowedAt,
+    dueAt: input.status === "willBorrow" ? "" : input.dueAt || addDays(borrowedAt, 14),
+    returnedAt: "",
+    status: input.status || "borrowed",
+    rating: input.rating || 0,
+    read: null,
+    memo: input.memo || "",
+    createdAt: Date.now(),
+  };
+  updateData((d) => {
+    d.books.push(book);
+    if (book.memo) {
+      d.underlines.push({
+        id: makeId(),
+        bookId: book.id,
+        memberId: book.memberId,
+        text: book.memo,
+        createdAt: Date.now(),
+      });
+    }
+  });
+  return book;
+}
+
+export function getBook(id) {
+  return data.books.find((b) => b.id === id);
+}
+
+export function updateBook(id, patch) {
+  updateData((d) => {
+    const book = d.books.find((b) => b.id === id);
+    if (book) Object.assign(book, patch);
+  });
+}
+
+export function removeBook(id) {
+  updateData((d) => {
+    d.books = d.books.filter((b) => b.id !== id);
+  });
+}
+
+// 빌릴 책 → 대출중으로 전환
+export function markBorrowed(id) {
+  const borrowedAt = todayStr();
+  updateBook(id, { status: "borrowed", borrowedAt, dueAt: addDays(borrowedAt, 14) });
+}
+
+// 대출중/지연 → 반납완료. read: true(다 읽었어요) | false(못 읽었어요)
+export function markReturned(id, read) {
+  updateBook(id, { status: "returned", returnedAt: todayStr(), read });
+}
+
+// 반납완료된 책을 같은 정보로 다시 대출 (새 기록 생성, 대출 횟수에 반영됨)
+export function reborrowBook(id) {
+  const original = getBook(id);
+  if (!original) return null;
+  return addBook({
+    memberId: original.memberId,
+    isbn13: original.isbn13,
+    title: original.title,
+    author: original.author,
+    publisher: original.publisher,
+    kdc: original.kdc,
+    libCode: original.libCode,
+    libName: original.libName,
+    status: "borrowed",
+  });
+}
