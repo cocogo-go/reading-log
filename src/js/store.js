@@ -13,6 +13,7 @@ const DEFAULT_DATA = {
   libraries: [],      // { libCode, libName, address, region }
   books: [],           // { id, memberId, isbn13, title, author, publisher, kdc, libCode, borrowedAt, dueAt, returnedAt, status, rating, read, underlineIds: [] }
   underlines: [],     // { id, bookId, memberId, text, createdAt }
+  keywordsByIsbn: {}, // { [isbn13]: [{ word, weight }] } — 관심사 지도용 캐시
   settings: { authKey: "" },
 };
 
@@ -125,6 +126,18 @@ export function dDay(dueAt) {
 export function borrowCount(isbn13) {
   if (!isbn13) return 0;
   return data.books.filter((b) => b.isbn13 === isbn13).length;
+}
+
+// ---------- 키워드 (관심사 지도) ----------
+
+export function getKeywordsForIsbn(isbn13) {
+  return data.keywordsByIsbn[isbn13] || null;
+}
+
+export function setKeywordsForIsbn(isbn13, keywords) {
+  updateData((d) => {
+    d.keywordsByIsbn[isbn13] = keywords;
+  });
 }
 
 export function addBook(input) {

@@ -1,5 +1,5 @@
 import { getData, addBook, borrowCount } from "../store.js";
-import { AGE_GROUPS, loanItemSrch, bookExist } from "../api.js";
+import { AGE_GROUPS, loanItemSrch, bookExist, enrichKeywords } from "../api.js";
 import { escapeHtml } from "./bookCard.js";
 
 let overlayEl = null;
@@ -147,6 +147,7 @@ function render() {
           kdc: b.class_no || "",
           status: "willBorrow",
         });
+        enrichKeywords(b.isbn13);
         btn.textContent = "담았어요";
         btn.disabled = true;
       });

@@ -1,4 +1,4 @@
-const CACHE_NAME = "reading-log-v11";
+const CACHE_NAME = "reading-log-v12";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -19,6 +19,7 @@ const APP_SHELL = [
   "./src/js/views/underline.js",
   "./src/js/views/dietChart.js",
   "./src/js/views/recommend.js",
+  "./src/js/views/interestMap.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",

@@ -1,5 +1,5 @@
 import { getData, addBook, borrowCount, getAuthKey, updateBook } from "../store.js";
-import { srchBooks, srchByIsbn } from "../api.js";
+import { srchBooks, srchByIsbn, enrichKeywords } from "../api.js";
 import { escapeHtml } from "./bookCard.js";
 import { enrichForeignCategory } from "../googleBooksApi.js";
 import { todayStr, addDays } from "../dateUtils.js";
@@ -363,5 +363,6 @@ function renderManualForm(onSaved, prefill = null) {
     closeOverlay();
     onSaved?.(book);
     enrichAfterSave(book);
+    enrichKeywords(book.isbn13);
   });
 }

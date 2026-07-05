@@ -4,6 +4,7 @@ import { openBookDetail } from "./bookDetail.js";
 import { CATEGORIES, computeCounts, buildDietComment } from "../kdc.js";
 import { openDietChart } from "./dietChart.js";
 import { openRecommend } from "./recommend.js";
+import { openInterestMap } from "./interestMap.js";
 import { thisMonthKey } from "../dateUtils.js";
 
 export function renderHomeView(container) {
@@ -56,6 +57,13 @@ export function renderHomeView(container) {
       }
     </div>
 
+    <div class="card book-card" id="interest-entry" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 class="serif" style="font-size:15px; margin:0;">관심사 지도</h3>
+        <span class="hint" style="margin:0;">›</span>
+      </div>
+    </div>
+
     <div class="card book-card" id="recommend-entry">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 class="serif" style="font-size:15px; margin:0;">추천도서 둘러보기</h3>
@@ -81,5 +89,6 @@ export function renderHomeView(container) {
   });
 
   container.querySelector("#diet-preview").addEventListener("click", openDietChart);
+  container.querySelector("#interest-entry").addEventListener("click", openInterestMap);
   container.querySelector("#recommend-entry").addEventListener("click", openRecommend);
 }

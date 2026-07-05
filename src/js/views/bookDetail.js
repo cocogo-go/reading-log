@@ -9,8 +9,9 @@ import {
   setBookRating,
   setBookMemo,
   updateBook,
+  addBook,
 } from "../store.js";
-import { bookExist } from "../api.js";
+import { bookExist, usageAnalysisList, enrichKeywords } from "../api.js";
 import { escapeHtml, statusLabel } from "./bookCard.js";
 
 const UNDERLINE_PROMPTS = [
@@ -131,6 +132,15 @@ function render(bookId, onChange) {
           : ""
       }
 
+      ${
+        book.isbn13
+          ? `<div class="card" style="margin-top:16px;">
+              <h3 style="font-size:14px; margin-bottom:10px;">함께 대출된 도서</h3>
+              <div id="coloan-slot"><p class="hint" style="margin:0;">불러오는 중이에요...</p></div>
+            </div>`
+          : ""
+      }
+
       <div class="card" style="margin-top:16px;">
         <h3 style="font-size:14px; margin-bottom:10px;">별점 · 밑줄</h3>
         ${starPickerHtml("edit-star-picker", book.rating || 0)}
@@ -163,6 +173,10 @@ function render(bookId, onChange) {
 
   if (status === "willBorrow") {
     loadAvailability(book);
+  }
+
+  if (book.isbn13) {
+    loadCoLoanBooks(book, onChange);
   }
 
   let editRating = book.rating || 0;
@@ -200,6 +214,7 @@ function render(bookId, onChange) {
     actionArea.innerHTML = `<button type="button" class="btn btn-primary btn-block" id="reborrow">또 빌렸어요</button>`;
     actionArea.querySelector("#reborrow").addEventListener("click", () => {
       reborrowBook(bookId);
+      enrichKeywords(book.isbn13);
       onChange?.();
       closeDetail();
     });
@@ -297,6 +312,55 @@ async function loadAvailability(book) {
   } catch {
     if (overlayEl && overlayEl.contains(slot)) {
       slot.innerHTML = `<p class="hint" style="margin:0;">대출 가능 여부를 불러오지 못했어요.</p>`;
+    }
+  }
+}
+
+async function loadCoLoanBooks(book, onChange) {
+  const slot = overlayEl?.querySelector("#coloan-slot");
+  if (!slot) return;
+
+  try {
+    const books = await usageAnalysisList(book.isbn13);
+    if (!overlayEl || !overlayEl.contains(slot)) return;
+    if (books.length === 0) {
+      slot.innerHTML = `<p class="hint" style="margin:0;">함께 대출된 도서 정보가 없어요.</p>`;
+      return;
+    }
+    slot.innerHTML = books
+      .slice(0, 8)
+      .map(
+        (b, i) => `
+      <div class="lib-item">
+        <div style="min-width:0;">
+          <div class="lib-name">${escapeHtml(b.bookname)}</div>
+          <div class="lib-address">${escapeHtml(b.authors || "")}${b.authors && b.publisher ? " · " : ""}${escapeHtml(b.publisher || "")}</div>
+        </div>
+        <button type="button" class="btn btn-secondary" data-coloan-add="${i}" style="flex-shrink:0;">담기</button>
+      </div>
+    `
+      )
+      .join("");
+    slot.querySelectorAll("[data-coloan-add]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const b = books[Number(btn.dataset.coloanAdd)];
+        addBook({
+          memberId: book.memberId,
+          isbn13: b.isbn13 || "",
+          title: b.bookname,
+          author: b.authors || "",
+          publisher: b.publisher || "",
+          status: "willBorrow",
+        });
+        enrichKeywords(b.isbn13);
+        onChange?.();
+        btn.textContent = "담았어요";
+        btn.disabled = true;
+      });
+    });
+  } catch {
+    if (overlayEl && overlayEl.contains(slot)) {
+      slot.innerHTML = `<p class="hint" style="margin:0;">함께 대출된 도서를 불러오지 못했어요.</p>`;
     }
   }
 }

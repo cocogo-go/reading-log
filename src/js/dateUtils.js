@@ -27,3 +27,9 @@ export function thisMonthKey() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
+
+export function monthsAgoStr(n) {
+  const d = new Date();
+  d.setMonth(d.getMonth() - n);
+  return formatLocalDate(d);
+}

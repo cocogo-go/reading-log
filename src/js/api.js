@@ -4,7 +4,7 @@
 // 사용자가 설정 화면에서 입력한 키를 localStorage(store.js)에 저장해 사용한다.
 // CORS는 실제 브라우저 fetch로 테스트 완료 (Access-Control-Allow-Origin: *) — 중계 서버 불필요.
 
-import { getAuthKey } from "./store.js";
+import { getAuthKey, getKeywordsForIsbn, setKeywordsForIsbn } from "./store.js";
 
 const BASE_URL = "https://data4library.kr/api";
 
@@ -103,6 +103,34 @@ export async function srchByIsbn(isbn13) {
     publisher: book.publisher || "",
     class_no: book.class_no || "",
   };
+}
+
+// ISBN13의 핵심 키워드 + 가중치 (관심사 지도용)
+export async function keywordList(isbn13) {
+  const json = await callApi("keywordList", { isbn13, additionalYN: "N" });
+  const items = json?.response?.items || [];
+  return items.map((i) => ({ word: i.item.word, weight: Number(i.item.weight) || 0 }));
+}
+
+// 캐시에 없을 때만 백그라운드로 키워드를 가져와 저장한다. 실패해도 조용히 넘어간다
+// (등록/재대출/담기 같은 흐름을 절대 막지 않는다).
+export function enrichKeywords(isbn13) {
+  if (!isbn13 || getKeywordsForIsbn(isbn13)) return;
+  keywordList(isbn13)
+    .then((keywords) => setKeywordsForIsbn(isbn13, keywords))
+    .catch(() => {});
+}
+
+// 이 책과 함께 대출된 도서 목록
+export async function usageAnalysisList(isbn13) {
+  const json = await callApi("usageAnalysisList", { isbn13 });
+  const books = json?.response?.coLoanBooks || [];
+  return books.map((b) => ({
+    isbn13: b.book.isbn13 || "",
+    bookname: b.book.bookname || "",
+    authors: b.book.authors || "",
+    publisher: b.book.publisher || "",
+  }));
 }
 
 export { callApi, getAuthKey };
