@@ -8,8 +8,11 @@ import {
   addLibrary,
   removeLibrary,
   isLibrarySaved,
+  exportBackup,
+  importBackup,
 } from "../store.js";
 import { REGIONS, libSrch } from "../api.js";
+import { todayStr } from "../dateUtils.js";
 
 let lastSearchResults = [];
 
@@ -129,6 +132,17 @@ export function renderSettingsView(container) {
       <p class="hint" id="lib-search-status" style="margin-top:8px;"></p>
       <div id="lib-search-results">${renderSearchResults()}</div>
     </div>
+
+    <div class="card">
+      <h3>데이터 백업</h3>
+      <p class="hint">기록은 이 기기(이 앱)에만 저장돼요. 사파리와 홈 화면 앱은 저장 공간이 서로 달라서, 옮기고 싶을 땐 내보내기 → 가져오기를 이용해주세요.</p>
+      <div class="row">
+        <button type="button" class="btn btn-secondary" style="flex:1;" id="export-btn">내보내기</button>
+        <button type="button" class="btn btn-secondary" style="flex:1;" id="import-btn">가져오기</button>
+      </div>
+      <input type="file" id="import-file-input" accept="application/json" hidden />
+      <p class="hint" id="backup-status" style="margin-top:8px;"></p>
+    </div>
   `;
 
   container.querySelector("#member-form").addEventListener("submit", (e) => {
@@ -205,6 +219,42 @@ export function renderSettingsView(container) {
   });
 
   wireAddLibButtons(container);
+
+  const backupStatus = container.querySelector("#backup-status");
+
+  container.querySelector("#export-btn").addEventListener("click", () => {
+    const json = exportBackup();
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `우리가족대출카드-백업-${todayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    backupStatus.textContent = "내보냈어요. 옮기려는 기기/앱의 '가져오기'에서 이 파일을 선택해주세요.";
+  });
+
+  const fileInput = container.querySelector("#import-file-input");
+  container.querySelector("#import-btn").addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    if (!confirm("가져오면 지금 이 기기에 있는 기록은 백업 파일 내용으로 덮어써져요. 계속할까요?")) {
+      fileInput.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        importBackup(reader.result);
+        alert("가져왔어요. 화면을 새로고침할게요.");
+        location.reload();
+      } catch {
+        backupStatus.textContent = "파일을 읽지 못했어요. 이 앱에서 내보낸 백업 파일이 맞는지 확인해주세요.";
+      }
+    };
+    reader.readAsText(file);
+  });
 }
 
 function wireAddLibButtons(container) {
