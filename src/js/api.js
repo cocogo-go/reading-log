@@ -63,8 +63,9 @@ export function bookExist(isbn13, libCode) {
 }
 
 // 지역(시도) 안의 도서관 목록. dtlRegion(구/군 코드)은 선택.
+// dtl_region 코드 없이도 구/군 이름으로 클라이언트에서 걸러낼 수 있도록 전체 목록을 받아온다.
 export async function libSrch(region, dtlRegion) {
-  const params = { region };
+  const params = { region, pageSize: 500 };
   if (dtlRegion) params.dtl_region = dtlRegion;
   const json = await callApi("libSrch", params);
   const libs = json?.response?.libs || [];
