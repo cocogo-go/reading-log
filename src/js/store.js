@@ -1,5 +1,7 @@
 // localStorage 기반 저장소. 서버/로그인 없이 기기에만 보관한다.
 
+import { todayStr, addDays } from "./dateUtils.js";
+
 const STORAGE_KEY = "rl_data_v1";
 const MAX_MEMBERS = 5;
 
@@ -104,16 +106,6 @@ export function removeLibrary(libCode) {
 // status: "willBorrow" | "borrowed" | "returned"
 // 지연 여부는 저장하지 않고 dueAt으로 매번 계산한다 (getDisplayStatus 참고).
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function addDays(dateStr, days) {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 export function getDisplayStatus(book) {
   if (book.status === "returned") return "returned";
   if (book.status === "willBorrow") return "willBorrow";
@@ -154,6 +146,7 @@ export function addBook(input) {
     rating: input.rating || 0,
     read: null,
     memo: input.memo || "",
+    foreignCategory: input.foreignCategory || null, // "literature" | "nonfiction" | "general" (영어원서, KDC 없을 때만)
     createdAt: Date.now(),
   };
   updateData((d) => {
@@ -185,6 +178,42 @@ export function updateBook(id, patch) {
 export function removeBook(id) {
   updateData((d) => {
     d.books = d.books.filter((b) => b.id !== id);
+  });
+}
+
+// ---------- 별점 / 밑줄 (등록과 분리해서 언제든 기록) ----------
+
+export function setBookRating(id, rating) {
+  updateBook(id, { rating });
+}
+
+export function getUnderlineForBook(bookId) {
+  return data.underlines.find((u) => u.bookId === bookId);
+}
+
+// 책 하나에는 밑줄 메모를 하나만 유지한다. 빈 텍스트를 넣으면 삭제한다.
+export function setBookMemo(bookId, text) {
+  const trimmed = text.trim();
+  updateData((d) => {
+    const book = d.books.find((b) => b.id === bookId);
+    if (book) book.memo = trimmed;
+
+    const existing = d.underlines.find((u) => u.bookId === bookId);
+    if (!trimmed) {
+      d.underlines = d.underlines.filter((u) => u.bookId !== bookId);
+      return;
+    }
+    if (existing) {
+      existing.text = trimmed;
+    } else {
+      d.underlines.push({
+        id: makeId(),
+        bookId,
+        memberId: book?.memberId,
+        text: trimmed,
+        createdAt: Date.now(),
+      });
+    }
   });
 }
 

@@ -1,26 +1,11 @@
-import { getData, addBook, borrowCount, getAuthKey } from "../store.js";
+import { getData, addBook, borrowCount, getAuthKey, updateBook } from "../store.js";
 import { srchBooks, srchByIsbn } from "../api.js";
 import { escapeHtml } from "./bookCard.js";
+import { enrichForeignCategory } from "../googleBooksApi.js";
+import { todayStr, addDays } from "../dateUtils.js";
 
 const ZXING_CDN_URL = "https://esm.sh/@zxing/browser@0.1.5";
 const ISBN13_RE = /^97[89]\d{10}$/;
-
-const UNDERLINE_PROMPTS = [
-  "아이가 어느 장면에서 웃었나요?",
-  "읽고 나서 아이가 뭐라고 했나요?",
-  "엄마 마음에 남은 한 문장은?",
-  "다음에 또 빌리고 싶은 이유가 있다면?",
-];
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function addDays(dateStr, days) {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
 
 function debounce(fn, ms) {
   let t;
@@ -142,16 +127,22 @@ async function handleScanned(isbn13, onSaved) {
   renderManualForm(onSaved, book || { isbn13 });
 }
 
+// 등록 후 백그라운드에서 분류 정보를 보강한다 (10초 등록 원칙을 지키기 위해 등록을 막지 않음)
+function enrichAfterSave(book) {
+  if (!book.isbn13 || book.kdc) return; // 국내 KDC가 이미 있으면 건드리지 않는다
+  enrichForeignCategory(book.isbn13).then((foreignCategory) => {
+    if (foreignCategory) updateBook(book.id, { foreignCategory });
+  });
+}
+
 function renderManualForm(onSaved, prefill = null) {
   const data = getData();
   const members = data.members;
   const libraries = data.libraries;
-  const placeholder = UNDERLINE_PROMPTS[Math.floor(Math.random() * UNDERLINE_PROMPTS.length)];
 
   let selectedBook = null; // { isbn13, title, author, publisher, kdc }
   let manualEntry = false;
   let status = "borrowed"; // "borrowed" | "willBorrow"
-  let rating = 0;
   // 바코드는 스캔했지만 정보나루 조회에 실패했을 때도 isbn13은 끝까지 들고 간다
   const scannedIsbn13 = prefill?.isbn13 && !prefill?.bookname ? prefill.isbn13 : null;
 
@@ -216,18 +207,6 @@ function renderManualForm(onSaved, prefill = null) {
               </div>
             </div>
 
-            <div class="field-group">
-              <span class="field-label">별점</span>
-              <div class="star-picker" id="star-picker">
-                ${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-star="${n}">★</button>`).join("")}
-              </div>
-            </div>
-
-            <div class="field-group">
-              <span class="field-label">밑줄 메모 (선택)</span>
-              <textarea class="input" id="memo-input" rows="3" placeholder="${escapeHtml(placeholder)}"></textarea>
-            </div>
-
             <button type="submit" class="btn btn-primary btn-block" id="submit-btn">대출 도장 찍기</button>
           </form>`
       }
@@ -246,6 +225,8 @@ function renderManualForm(onSaved, prefill = null) {
   const manualFields = overlayEl.querySelector("#manual-fields");
   const dateFields = overlayEl.querySelector("#date-fields");
   const submitBtn = overlayEl.querySelector("#submit-btn");
+  const borrowedAtInput = overlayEl.querySelector("#borrowed-at-input");
+  const dueAtInput = overlayEl.querySelector("#due-at-input");
 
   overlayEl.querySelectorAll(".status-toggle button").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -254,6 +235,13 @@ function renderManualForm(onSaved, prefill = null) {
       dateFields.hidden = status === "willBorrow";
       submitBtn.textContent = status === "willBorrow" ? "빌릴 책으로 담아두기" : "대출 도장 찍기";
     });
+  });
+
+  // 빌린 날짜가 바뀌면 반납 예정일을 +14일로 다시 계산한다 (그 다음에 직접 수정도 가능)
+  borrowedAtInput.addEventListener("change", () => {
+    if (borrowedAtInput.value) {
+      dueAtInput.value = addDays(borrowedAtInput.value, 14);
+    }
   });
 
   manualToggle.addEventListener("click", () => {
@@ -349,15 +337,6 @@ function renderManualForm(onSaved, prefill = null) {
     runSearch(titleInput.value.trim());
   });
 
-  overlayEl.querySelectorAll("#star-picker button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      rating = Number(btn.dataset.star);
-      overlayEl.querySelectorAll("#star-picker button").forEach((b) => {
-        b.classList.toggle("active", Number(b.dataset.star) <= rating);
-      });
-    });
-  });
-
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const title = titleInput.value.trim();
@@ -366,7 +345,6 @@ function renderManualForm(onSaved, prefill = null) {
     const memberId = overlayEl.querySelector("#member-select").value;
     const libCode = overlayEl.querySelector("#library-select").value;
     const library = libraries.find((l) => l.libCode === libCode);
-    const memoInput = overlayEl.querySelector("#memo-input");
 
     const book = addBook({
       memberId,
@@ -378,13 +356,12 @@ function renderManualForm(onSaved, prefill = null) {
       libCode,
       libName: library?.libName || "",
       status,
-      borrowedAt: overlayEl.querySelector("#borrowed-at-input")?.value,
-      dueAt: overlayEl.querySelector("#due-at-input")?.value,
-      rating,
-      memo: memoInput.value.trim(),
+      borrowedAt: borrowedAtInput?.value,
+      dueAt: dueAtInput?.value,
     });
 
     closeOverlay();
     onSaved?.(book);
+    enrichAfterSave(book);
   });
 }

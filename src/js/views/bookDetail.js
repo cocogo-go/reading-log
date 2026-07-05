@@ -1,7 +1,31 @@
-import { getData, getBook, getDisplayStatus, markBorrowed, markReturned, reborrowBook, removeBook } from "../store.js";
+import {
+  getData,
+  getBook,
+  getDisplayStatus,
+  markBorrowed,
+  markReturned,
+  reborrowBook,
+  removeBook,
+  setBookRating,
+  setBookMemo,
+  updateBook,
+} from "../store.js";
+import { bookExist } from "../api.js";
 import { escapeHtml, statusLabel } from "./bookCard.js";
 
+const UNDERLINE_PROMPTS = [
+  "아이가 어느 장면에서 웃었나요?",
+  "읽고 나서 아이가 뭐라고 했나요?",
+  "엄마 마음에 남은 한 문장은?",
+  "다음에 또 빌리고 싶은 이유가 있다면?",
+];
+
+function randomPrompt() {
+  return UNDERLINE_PROMPTS[Math.floor(Math.random() * UNDERLINE_PROMPTS.length)];
+}
+
 let overlayEl = null;
+let pendingReturn = null; // { bookId, read }
 
 function memberName(memberId) {
   return getData().members.find((m) => m.id === memberId)?.name || "";
@@ -9,6 +33,7 @@ function memberName(memberId) {
 
 export function openBookDetail(bookId, onChange) {
   closeDetail();
+  pendingReturn = null;
   overlayEl = document.createElement("div");
   overlayEl.className = "overlay";
   document.body.appendChild(overlayEl);
@@ -22,12 +47,42 @@ function closeDetail() {
   }
 }
 
+function starPickerHtml(id, current) {
+  return `
+    <div class="star-picker" id="${id}">
+      ${[1, 2, 3, 4, 5]
+        .map((n) => `<button type="button" class="${n <= current ? "active" : ""}" data-star="${n}">★</button>`)
+        .join("")}
+    </div>
+  `;
+}
+
+function wireStarPicker(container, id, onPick) {
+  let value = 0;
+  container.querySelectorAll(`#${id} button`).forEach((btn) => {
+    if (btn.classList.contains("active")) value = Math.max(value, Number(btn.dataset.star));
+  });
+  container.querySelectorAll(`#${id} button`).forEach((btn) => {
+    btn.addEventListener("click", () => {
+      value = Number(btn.dataset.star);
+      container.querySelectorAll(`#${id} button`).forEach((b) => b.classList.toggle("active", Number(b.dataset.star) <= value));
+      onPick(value);
+    });
+  });
+}
+
 function render(bookId, onChange) {
   const book = getBook(bookId);
   if (!book) {
     closeDetail();
     return;
   }
+
+  if (pendingReturn && pendingReturn.bookId === bookId) {
+    renderReturnFlow(book, onChange);
+    return;
+  }
+
   const status = getDisplayStatus(book);
 
   overlayEl.innerHTML = `
@@ -52,10 +107,35 @@ function render(bookId, onChange) {
           ${book.dueAt ? `<div>반납 예정일 · ${book.dueAt}</div>` : ""}
           ${book.returnedAt ? `<div>반납한 날짜 · ${book.returnedAt}</div>` : ""}
           ${book.read !== null && book.status === "returned" ? `<div>완독 · ${book.read ? "다 읽었어요" : "못 읽었어요"}</div>` : ""}
-          ${book.rating ? `<div>별점 · <span style="color:var(--star);">${"★".repeat(book.rating)}</span></div>` : ""}
         </div>
 
-        ${book.memo ? `<div class="underline-text" style="margin-top:16px; display:block;">${escapeHtml(book.memo)}</div>` : ""}
+        ${
+          book.foreignCategory
+            ? `<div style="margin-top:14px;">
+                <span class="hint" style="margin-right:8px;">분류</span>
+                <span class="filter-row" style="display:inline-flex; margin:0;">
+                  <button type="button" class="filter-chip ${book.foreignCategory === "literature" ? "active" : ""}" id="fc-lit">문학</button>
+                  <button type="button" class="filter-chip ${book.foreignCategory === "nonfiction" ? "active" : ""}" id="fc-nonfic">비문학</button>
+                </span>
+              </div>`
+            : ""
+        }
+      </div>
+
+      ${
+        status === "willBorrow"
+          ? `<div class="card" style="margin-top:16px;">
+              <h3 style="font-size:14px; margin-bottom:10px;">도서관 대출 가능 여부</h3>
+              <div id="avail-slot"><p class="hint" style="margin:0;">확인 중이에요...</p></div>
+            </div>`
+          : ""
+      }
+
+      <div class="card" style="margin-top:16px;">
+        <h3 style="font-size:14px; margin-bottom:10px;">별점 · 밑줄</h3>
+        ${starPickerHtml("edit-star-picker", book.rating || 0)}
+        <textarea class="input" id="edit-memo-input" rows="3" style="margin-top:12px;" placeholder="${escapeHtml(randomPrompt())}">${escapeHtml(book.memo || "")}</textarea>
+        <button type="button" class="btn btn-secondary btn-block" id="edit-save-btn" style="margin-top:10px;">저장하기</button>
       </div>
 
       <div id="action-area" style="margin-top:16px; display:flex; flex-direction:column; gap:10px;"></div>
@@ -66,6 +146,32 @@ function render(bookId, onChange) {
 
   overlayEl.querySelector("#detail-close").addEventListener("click", () => {
     closeDetail();
+  });
+
+  if (book.foreignCategory) {
+    overlayEl.querySelector("#fc-lit").addEventListener("click", () => {
+      updateBook(bookId, { foreignCategory: "literature" });
+      onChange?.();
+      render(bookId, onChange);
+    });
+    overlayEl.querySelector("#fc-nonfic").addEventListener("click", () => {
+      updateBook(bookId, { foreignCategory: "nonfiction" });
+      onChange?.();
+      render(bookId, onChange);
+    });
+  }
+
+  if (status === "willBorrow") {
+    loadAvailability(book);
+  }
+
+  let editRating = book.rating || 0;
+  wireStarPicker(overlayEl, "edit-star-picker", (v) => (editRating = v));
+  overlayEl.querySelector("#edit-save-btn").addEventListener("click", () => {
+    setBookRating(bookId, editRating);
+    setBookMemo(bookId, overlayEl.querySelector("#edit-memo-input").value);
+    onChange?.();
+    render(bookId, onChange);
   });
 
   const actionArea = overlayEl.querySelector("#action-area");
@@ -83,13 +189,11 @@ function render(bookId, onChange) {
       <button type="button" class="btn btn-secondary btn-block" id="return-unread">반납했어요 · 못 읽었어요</button>
     `;
     actionArea.querySelector("#return-read").addEventListener("click", () => {
-      markReturned(bookId, true);
-      onChange?.();
+      pendingReturn = { bookId, read: true };
       render(bookId, onChange);
     });
     actionArea.querySelector("#return-unread").addEventListener("click", () => {
-      markReturned(bookId, false);
-      onChange?.();
+      pendingReturn = { bookId, read: false };
       render(bookId, onChange);
     });
   } else if (status === "returned") {
@@ -108,4 +212,91 @@ function render(bookId, onChange) {
       closeDetail();
     }
   });
+}
+
+function renderReturnFlow(book, onChange) {
+  const bookId = book.id;
+  overlayEl.innerHTML = `
+    <div class="overlay-header">
+      <h2 class="serif" style="font-size:18px;">반납했어요</h2>
+      <button type="button" class="close-btn" id="detail-close">✕</button>
+    </div>
+    <div class="overlay-body">
+      <div class="card">
+        <div class="serif" style="font-size:17px; font-weight:700;">${escapeHtml(book.title)}</div>
+        <p class="hint" style="margin:10px 0 0;">별점과 밑줄은 지금 남겨도 되고, 책장에서 나중에 채워도 돼요.</p>
+      </div>
+
+      <div class="field-group" style="margin-top:16px;">
+        <span class="field-label">별점</span>
+        ${starPickerHtml("return-star-picker", 0)}
+      </div>
+      <div class="field-group">
+        <span class="field-label">밑줄 메모 (선택)</span>
+        <textarea class="input" id="return-memo-input" rows="3" placeholder="${escapeHtml(randomPrompt())}"></textarea>
+      </div>
+
+      <button type="button" class="btn btn-primary btn-block" id="return-save">저장하고 마치기</button>
+      <button type="button" class="btn btn-secondary btn-block" id="return-skip" style="margin-top:10px;">건너뛰기</button>
+    </div>
+  `;
+
+  overlayEl.querySelector("#detail-close").addEventListener("click", closeDetail);
+
+  let rating = 0;
+  wireStarPicker(overlayEl, "return-star-picker", (v) => (rating = v));
+
+  function finish() {
+    const read = pendingReturn.read;
+    pendingReturn = null;
+    markReturned(bookId, read);
+    onChange?.();
+    render(bookId, onChange);
+  }
+
+  overlayEl.querySelector("#return-save").addEventListener("click", () => {
+    if (rating) setBookRating(bookId, rating);
+    const memo = overlayEl.querySelector("#return-memo-input").value;
+    if (memo.trim()) setBookMemo(bookId, memo);
+    finish();
+  });
+  overlayEl.querySelector("#return-skip").addEventListener("click", finish);
+}
+
+async function loadAvailability(book) {
+  const slot = overlayEl?.querySelector("#avail-slot");
+  if (!slot) return;
+  const libraries = getData().libraries;
+
+  if (!book.isbn13) {
+    slot.innerHTML = `<p class="hint" style="margin:0;">바코드 스캔이나 자동완성으로 등록하면 대출 가능 여부를 확인할 수 있어요.</p>`;
+    return;
+  }
+  if (libraries.length === 0) {
+    slot.innerHTML = `<p class="hint" style="margin:0;">설정에서 나의 도서관을 등록하면 대출 가능 여부를 볼 수 있어요.</p>`;
+    return;
+  }
+
+  try {
+    const results = await Promise.all(
+      libraries.map(async (lib) => ({ lib, status: await bookExist(book.isbn13, lib.libCode) }))
+    );
+    if (!overlayEl || !overlayEl.contains(slot)) return; // 그 사이 화면이 바뀌었으면 반영하지 않는다
+    slot.innerHTML = results
+      .map(({ lib, status }) => {
+        const icon = status === "available" ? "🟢" : status === "unavailable" ? "🔴" : "⚪";
+        const label = status === "available" ? "대출가능" : status === "unavailable" ? "대출중" : "미소장";
+        return `
+          <div class="lib-item">
+            <div class="lib-name">${icon} ${escapeHtml(lib.libName)}</div>
+            <span class="hint" style="margin:0;">${label}</span>
+          </div>
+        `;
+      })
+      .join("");
+  } catch {
+    if (overlayEl && overlayEl.contains(slot)) {
+      slot.innerHTML = `<p class="hint" style="margin:0;">대출 가능 여부를 불러오지 못했어요.</p>`;
+    }
+  }
 }

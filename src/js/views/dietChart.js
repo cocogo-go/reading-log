@@ -1,12 +1,9 @@
 import { getData } from "../store.js";
 import { CATEGORIES, computeCounts, buildDietComment } from "../kdc.js";
 import { escapeHtml } from "./bookCard.js";
+import { thisMonthKey } from "../dateUtils.js";
 
 let overlayEl = null;
-
-function thisMonthKey() {
-  return new Date().toISOString().slice(0, 7);
-}
 
 function filterBooks(books, memberFilter, period) {
   let result = books;

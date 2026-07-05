@@ -8,14 +8,25 @@ export const CATEGORIES = {
   history: { label: "역사", color: "#B94A3A" },
   art: { label: "예술", color: "#8A867A" },
   humanities: { label: "인문·사회", color: "#6B7A8F" },
+  en_lit: { label: "영어원서·문학", color: "#7A5C3E" },
+  en_nonfic: { label: "영어원서·비문학", color: "#4A7A6B" },
+  en_general: { label: "영어원서", color: "#A67F5D" },
   etc: { label: "기타", color: "#C9C4B4" },
 };
+
+// 정보나루 KDC보다 영어원서 분류(foreignCategory)를 우선한다.
+export function classifyBook(book) {
+  if (book.foreignCategory === "literature") return "en_lit";
+  if (book.foreignCategory === "nonfiction") return "en_nonfic";
+  if (book.foreignCategory === "general") return "en_general";
+  return classifyKdc(book.kdc);
+}
 
 export function computeCounts(books) {
   const counts = {};
   for (const key of Object.keys(CATEGORIES)) counts[key] = 0;
   books.forEach((b) => {
-    counts[classifyKdc(b.kdc)]++;
+    counts[classifyBook(b)]++;
   });
   return counts;
 }

@@ -3,10 +3,8 @@ import { renderBookCard } from "./bookCard.js";
 import { openBookDetail } from "./bookDetail.js";
 import { CATEGORIES, computeCounts, buildDietComment } from "../kdc.js";
 import { openDietChart } from "./dietChart.js";
-
-function thisMonthKey() {
-  return new Date().toISOString().slice(0, 7);
-}
+import { openRecommend } from "./recommend.js";
+import { thisMonthKey } from "../dateUtils.js";
 
 export function renderHomeView(container) {
   const data = getData();
@@ -19,7 +17,6 @@ export function renderHomeView(container) {
 
   const monthKey = thisMonthKey();
   const thisMonthBooks = data.books.filter((b) => (b.borrowedAt || "").startsWith(monthKey));
-  const thisMonthCount = thisMonthBooks.length;
 
   const dietCounts = computeCounts(thisMonthBooks);
   const dietTotal = thisMonthBooks.length;
@@ -30,12 +27,15 @@ export function renderHomeView(container) {
     <h2 class="screen-title serif">홈</h2>
 
     <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div id="borrowed-toggle" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
         <div>
-          <div class="hint" style="margin:0;">이번 달 대출</div>
-          <div class="serif" style="font-size:24px; margin-top:2px;">${thisMonthCount}권</div>
+          <div class="hint" style="margin:0;">대출중인 책</div>
+          <div class="serif" style="font-size:24px; margin-top:2px;">${borrowedBooks.length}권</div>
         </div>
-        <span class="stamp">${new Date().getMonth() + 1}월</span>
+        <span class="hint" id="borrowed-toggle-label" style="margin:0;">${borrowedBooks.length === 0 ? "" : "더보기 ›"}</span>
+      </div>
+      <div id="borrowed-list" hidden style="margin-top:14px;">
+        ${borrowedBooks.map((b) => renderBookCard(b)).join("")}
       </div>
     </div>
 
@@ -56,13 +56,23 @@ export function renderHomeView(container) {
       }
     </div>
 
-    <h3 class="serif" style="font-size:15px; margin-bottom:10px;">지금 빌린 책</h3>
-    ${
-      borrowedBooks.length === 0
-        ? `<div class="empty-state">아직 도장이 하나도 없어요.<br />첫 번째 책을 기록해보세요.</div>`
-        : borrowedBooks.map((b) => renderBookCard(b)).join("")
-    }
+    <div class="card book-card" id="recommend-entry">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 class="serif" style="font-size:15px; margin:0;">추천도서 둘러보기</h3>
+        <span class="hint" style="margin:0;">›</span>
+      </div>
+    </div>
+
+    ${borrowedBooks.length === 0 ? `<div class="empty-state" style="margin-top:16px;">아직 도장이 하나도 없어요.<br />첫 번째 책을 기록해보세요.</div>` : ""}
   `;
+
+  const borrowedList = container.querySelector("#borrowed-list");
+  if (borrowedBooks.length > 0) {
+    container.querySelector("#borrowed-toggle").addEventListener("click", () => {
+      borrowedList.hidden = !borrowedList.hidden;
+      container.querySelector("#borrowed-toggle-label").textContent = borrowedList.hidden ? "더보기 ›" : "접기 ‹";
+    });
+  }
 
   container.querySelectorAll("[data-book-id]").forEach((el) => {
     el.addEventListener("click", () => {
@@ -71,4 +81,5 @@ export function renderHomeView(container) {
   });
 
   container.querySelector("#diet-preview").addEventListener("click", openDietChart);
+  container.querySelector("#recommend-entry").addEventListener("click", openRecommend);
 }

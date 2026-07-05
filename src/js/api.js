@@ -57,9 +57,28 @@ export async function srchBooks(keyword) {
   return docs.map((d) => d.doc);
 }
 
-// 특정 도서관들의 소장/대출가능 여부
-export function bookExist(isbn13, libCode) {
-  return callApi("bookExist", { isbn13, libCode });
+// 연령대 코드 (정보나루 loanItemSrch age 파라미터)
+export const AGE_GROUPS = [
+  { code: "0", name: "영유아" },
+  { code: "6", name: "유아" },
+  { code: "8", name: "초등" },
+  { code: "14", name: "청소년" },
+  { code: "20", name: "성인" },
+];
+
+// 특정 도서관의 소장/대출가능 여부. "available" | "unavailable" | "notFound"
+export async function bookExist(isbn13, libCode) {
+  const json = await callApi("bookExist", { isbn13, libCode });
+  const result = json?.response?.result;
+  if (!result || result.hasBook !== "Y") return "notFound";
+  return result.loanAvailable === "Y" ? "available" : "unavailable";
+}
+
+// 연령대별 인기대출도서
+export async function loanItemSrch(age) {
+  const json = await callApi("loanItemSrch", { age, pageSize: 20 });
+  const docs = json?.response?.docs || [];
+  return docs.map((d) => d.doc);
 }
 
 // 지역(시도) 안의 도서관 목록. dtlRegion(구/군 코드)은 선택.

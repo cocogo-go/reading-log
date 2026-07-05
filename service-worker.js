@@ -1,4 +1,4 @@
-const CACHE_NAME = "reading-log-v8";
+const CACHE_NAME = "reading-log-v10";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -8,6 +8,8 @@ const APP_SHELL = [
   "./src/js/store.js",
   "./src/js/api.js",
   "./src/js/kdc.js",
+  "./src/js/dateUtils.js",
+  "./src/js/googleBooksApi.js",
   "./src/js/views/settings.js",
   "./src/js/views/home.js",
   "./src/js/views/shelf.js",
@@ -16,6 +18,7 @@ const APP_SHELL = [
   "./src/js/views/bookDetail.js",
   "./src/js/views/underline.js",
   "./src/js/views/dietChart.js",
+  "./src/js/views/recommend.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",

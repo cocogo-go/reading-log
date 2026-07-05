@@ -1,6 +1,7 @@
 import { getData } from "../store.js";
 import { escapeHtml } from "./bookCard.js";
 import { openBookDetail } from "./bookDetail.js";
+import { formatLocalDateFromTimestamp } from "../dateUtils.js";
 
 function bookOf(bookId) {
   return getData().books.find((b) => b.id === bookId);
@@ -23,7 +24,7 @@ export function renderUnderlineView(container) {
             .map((u) => {
               const book = bookOf(u.bookId);
               const member = memberOf(u.memberId);
-              const date = new Date(u.createdAt).toISOString().slice(0, 10);
+              const date = formatLocalDateFromTimestamp(u.createdAt);
               return `
               <div class="card underline-card" data-book-id="${u.bookId || ""}" style="${book ? "cursor:pointer;" : ""}">
                 <p class="underline-text" style="display:block;">${escapeHtml(u.text)}</p>
