@@ -18,17 +18,17 @@ function extractIsbn13(text) {
   return digits.length === 13 ? digits : null;
 }
 
-// ISBN 같은 작은 글자는 OCR이 놓치기 쉽지만, 책 제목은 대개 큰 글씨라 비교적 잘 읽힌다.
-// 메타데이터로 보이는 줄을 걸러내고 한글이 섞인 가장 긴 줄을 제목 후보로 추정한다.
+// 글자 길이만으로 제목을 추정하면 "< 이전목록으로  관심자료보기" 같은 메뉴/버튼
+// 텍스트를 잘못 고를 수 있다. 책 제목은 실제로 큰 글씨로 나오는 경우가 대부분이라,
+// OCR이 알려주는 줄별 높이(bbox)를 이용해 "가장 큰 글씨의 줄"을 제목으로 추정한다.
 const OCR_META_LINE_RE = /^(ISBN|저자|출판|발행|형태|분류|표준번호|자료유형|소장|마크|isbn)/i;
 
-function guessTitleFromText(text) {
-  const candidates = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length >= 4 && /[가-힣]/.test(line) && !OCR_META_LINE_RE.test(line));
+function guessTitleFromLines(lines) {
+  const candidates = (lines || [])
+    .map((l) => ({ text: l.text.trim(), height: l.bbox.y1 - l.bbox.y0 }))
+    .filter(({ text }) => text.length >= 4 && /[가-힣]/.test(text) && !OCR_META_LINE_RE.test(text));
   if (candidates.length === 0) return "";
-  return candidates.reduce((longest, line) => (line.length > longest.length ? line : longest), "");
+  return candidates.reduce((tallest, line) => (line.height > tallest.height ? line : tallest)).text;
 }
 
 function debounce(fn, ms) {
@@ -126,17 +126,15 @@ function renderOcrScreen(onSaved) {
       const TesseractModule = await import(TESSERACT_CDN_URL);
       const { createWorker } = TesseractModule.default;
       worker = await createWorker(["kor", "eng"]);
-      const {
-        data: { text },
-      } = await worker.recognize(file);
-      const isbn13 = extractIsbn13(text);
+      const { data } = await worker.recognize(file);
+      const isbn13 = extractIsbn13(data.text);
 
       if (!overlayEl) return; // 그 사이 화면을 닫았으면 여기서 끝낸다
 
       if (isbn13) {
         handleScanned(isbn13, onSaved);
       } else {
-        const guessedTitle = guessTitleFromText(text);
+        const guessedTitle = guessTitleFromLines(data.lines);
         if (guessedTitle) {
           renderManualForm(onSaved, { guessedTitle });
         } else {
