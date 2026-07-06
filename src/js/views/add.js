@@ -5,7 +5,18 @@ import { enrichBookMetadata } from "../googleBooksApi.js";
 import { todayStr, addDays } from "../dateUtils.js";
 
 const ZXING_CDN_URL = "https://esm.sh/@zxing/browser@0.1.5";
+const TESSERACT_CDN_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js";
 const ISBN13_RE = /^97[89]\d{10}$/;
+// 도서관/서점 페이지 캡처 속 "ISBN 9791194534426" 같은 표기에서 13자리 ISBN을 찾는다.
+// 하이픈/공백이 섞여 있어도(979-11-94534-42-6) 인식하도록 넉넉하게 잡고 숫자만 남긴다.
+const ISBN_IN_TEXT_RE = /97[89][\d\-\s]{10,17}/;
+
+function extractIsbn13(text) {
+  const match = text.match(ISBN_IN_TEXT_RE);
+  if (!match) return null;
+  const digits = match[0].replace(/[^\d]/g, "");
+  return digits.length === 13 ? digits : null;
+}
 
 function debounce(fn, ms) {
   let t;
@@ -50,6 +61,10 @@ function renderChoiceScreen(onSaved) {
         <span class="choice-icon">📷</span>
         <span>바코드 스캔<br /><span style="font-size:12px; color:var(--muted);">책 뒤표지의 ISBN 바코드를 비춰주세요</span></span>
       </button>
+      <button type="button" class="choice-btn" id="choice-photo">
+        <span class="choice-icon">🖼️</span>
+        <span>사진으로 등록<br /><span style="font-size:12px; color:var(--muted);">도서관 페이지 캡처, 책 정보 사진에서 ISBN을 찾아요</span></span>
+      </button>
       <button type="button" class="choice-btn" id="choice-manual">
         <span class="choice-icon">✏️</span>
         <span>직접 입력</span>
@@ -58,7 +73,68 @@ function renderChoiceScreen(onSaved) {
   `;
   overlayEl.querySelector("#add-close").addEventListener("click", closeOverlay);
   overlayEl.querySelector("#choice-barcode").addEventListener("click", () => renderScanScreen(onSaved));
+  overlayEl.querySelector("#choice-photo").addEventListener("click", () => renderOcrScreen(onSaved));
   overlayEl.querySelector("#choice-manual").addEventListener("click", () => renderManualForm(onSaved));
+}
+
+function renderOcrScreen(onSaved) {
+  overlayEl.innerHTML = `
+    <div class="overlay-header">
+      <h2 class="serif" style="font-size:18px;">사진으로 등록</h2>
+      <button type="button" class="close-btn" id="add-close">✕</button>
+    </div>
+    <div class="overlay-body">
+      <div class="card">
+        <p class="hint" style="margin:0;">도서관 검색 결과나 책 정보가 담긴 사진(스크린샷 포함)을 선택하면, 그 안의 ISBN을 찾아서 자동으로 채워드려요.</p>
+      </div>
+      <input type="file" id="ocr-file-input" accept="image/*" hidden />
+      <button type="button" class="btn btn-primary btn-block" id="ocr-pick-btn" style="margin-top:16px;">사진 선택하기</button>
+      <p class="hint" id="ocr-status" style="margin-top:12px; text-align:center;"></p>
+    </div>
+  `;
+
+  overlayEl.querySelector("#add-close").addEventListener("click", closeOverlay);
+
+  const fileInput = overlayEl.querySelector("#ocr-file-input");
+  const pickBtn = overlayEl.querySelector("#ocr-pick-btn");
+  const statusEl = overlayEl.querySelector("#ocr-status");
+
+  pickBtn.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    pickBtn.disabled = true;
+    statusEl.textContent = "이미지에서 글자를 읽고 있어요... (처음엔 시간이 좀 걸려요)";
+
+    let worker;
+    try {
+      const TesseractModule = await import(TESSERACT_CDN_URL);
+      const { createWorker } = TesseractModule.default;
+      worker = await createWorker(["kor", "eng"]);
+      const {
+        data: { text },
+      } = await worker.recognize(file);
+      const isbn13 = extractIsbn13(text);
+
+      if (!overlayEl) return; // 그 사이 화면을 닫았으면 여기서 끝낸다
+
+      if (isbn13) {
+        handleScanned(isbn13, onSaved);
+      } else {
+        statusEl.textContent = "ISBN을 찾지 못했어요. 사진이 선명한지 확인하거나 직접 입력해주세요.";
+        pickBtn.disabled = false;
+      }
+    } catch (err) {
+      if (overlayEl) {
+        statusEl.textContent = "이미지를 읽지 못했어요. 직접 입력해주세요.";
+        pickBtn.disabled = false;
+      }
+    } finally {
+      worker?.terminate();
+    }
+  });
 }
 
 async function renderScanScreen(onSaved) {
