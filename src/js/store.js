@@ -8,6 +8,12 @@ const MAX_MEMBERS = 5;
 // 디자인 시스템 팔레트 안에서 구성원을 구분하는 색상들
 export const MEMBER_COLORS = ["#2E5944", "#3D5A98", "#B94A3A", "#D9A036", "#8A867A"];
 
+// 도서관 통합검색 URL 패턴. {query} 자리에 책 제목이 들어간다.
+// 대구 수성구립범어도서관은 기본 예시로 미리 알려진 값을 넣어준다.
+export const KNOWN_SEARCH_URL_PATTERNS = {
+  "127072": "https://library.daegu.go.kr/beomeo/intro/search/index.do?menu_idx=9&title={query}",
+};
+
 const DEFAULT_DATA = {
   members: [],       // { id, name, color }
   libraries: [],      // { libCode, libName, address, region }
@@ -17,11 +23,26 @@ const DEFAULT_DATA = {
   settings: { authKey: "" },
 };
 
+// 이 기능이 생기기 전에 이미 저장돼 있던 도서관에도 알려진 검색 URL 패턴을 채워준다.
+function migrateLibrarySearchPatterns(d) {
+  let changed = false;
+  d.libraries.forEach((lib) => {
+    if (!lib.searchUrlPattern && KNOWN_SEARCH_URL_PATTERNS[lib.libCode]) {
+      lib.searchUrlPattern = KNOWN_SEARCH_URL_PATTERNS[lib.libCode];
+      changed = true;
+    }
+  });
+  return changed;
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return structuredClone(DEFAULT_DATA);
-    return { ...structuredClone(DEFAULT_DATA), ...JSON.parse(raw) };
+    const parsed = raw ? { ...structuredClone(DEFAULT_DATA), ...JSON.parse(raw) } : structuredClone(DEFAULT_DATA);
+    if (migrateLibrarySearchPatterns(parsed)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    }
+    return parsed;
   } catch {
     return structuredClone(DEFAULT_DATA);
   }
@@ -103,12 +124,6 @@ export function removeLibrary(libCode) {
     d.libraries = d.libraries.filter((l) => l.libCode !== libCode);
   });
 }
-
-// 도서관 통합검색 URL 패턴. {query} 자리에 책 제목이 들어간다.
-// 대구 수성구립범어도서관은 기본 예시로 미리 알려진 값을 넣어준다.
-export const KNOWN_SEARCH_URL_PATTERNS = {
-  "127072": "https://library.daegu.go.kr/beomeo/intro/search/index.do?menu_idx=9&title={query}",
-};
 
 export function setLibrarySearchPattern(libCode, pattern) {
   updateData((d) => {
