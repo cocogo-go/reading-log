@@ -1,7 +1,7 @@
-import { getData, addBook, borrowCount, getAuthKey, updateBook } from "../store.js";
+import { getData, addBook, borrowCount, getAuthKey } from "../store.js";
 import { srchBooks, srchByIsbn, enrichKeywords } from "../api.js";
 import { escapeHtml } from "./bookCard.js";
-import { enrichForeignCategory } from "../googleBooksApi.js";
+import { enrichBookMetadata } from "../googleBooksApi.js";
 import { todayStr, addDays } from "../dateUtils.js";
 
 const ZXING_CDN_URL = "https://esm.sh/@zxing/browser@0.1.5";
@@ -125,14 +125,6 @@ async function handleScanned(isbn13, onSaved) {
     }
   }
   renderManualForm(onSaved, book || { isbn13 });
-}
-
-// 등록 후 백그라운드에서 분류 정보를 보강한다 (10초 등록 원칙을 지키기 위해 등록을 막지 않음)
-function enrichAfterSave(book) {
-  if (!book.isbn13 || book.kdc) return; // 국내 KDC가 이미 있으면 건드리지 않는다
-  enrichForeignCategory(book.isbn13).then((foreignCategory) => {
-    if (foreignCategory) updateBook(book.id, { foreignCategory });
-  });
 }
 
 function renderManualForm(onSaved, prefill = null) {
@@ -271,6 +263,7 @@ function renderManualForm(onSaved, prefill = null) {
       author: book.authors || "",
       publisher: book.publisher || "",
       kdc: book.class_no || "",
+      coverUrl: book.bookImageURL || "",
     };
     titleInput.value = selectedBook.title;
     acList.hidden = true;
@@ -353,6 +346,7 @@ function renderManualForm(onSaved, prefill = null) {
       author: selectedBook?.author || overlayEl.querySelector("#author-input")?.value.trim() || "",
       publisher: selectedBook?.publisher || overlayEl.querySelector("#publisher-input")?.value.trim() || "",
       kdc: selectedBook?.kdc || "",
+      coverUrl: selectedBook?.coverUrl || "",
       libCode,
       libName: library?.libName || "",
       status,
@@ -362,7 +356,7 @@ function renderManualForm(onSaved, prefill = null) {
 
     closeOverlay();
     onSaved?.(book);
-    enrichAfterSave(book);
+    enrichBookMetadata(book);
     enrichKeywords(book.isbn13);
   });
 }

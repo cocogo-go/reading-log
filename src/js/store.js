@@ -94,12 +94,26 @@ export function isLibrarySaved(libCode) {
 
 export function addLibrary(lib) {
   if (isLibrarySaved(lib.libCode)) return;
-  updateData((d) => d.libraries.push(lib));
+  const searchUrlPattern = lib.searchUrlPattern || KNOWN_SEARCH_URL_PATTERNS[lib.libCode] || "";
+  updateData((d) => d.libraries.push({ ...lib, searchUrlPattern }));
 }
 
 export function removeLibrary(libCode) {
   updateData((d) => {
     d.libraries = d.libraries.filter((l) => l.libCode !== libCode);
+  });
+}
+
+// 도서관 통합검색 URL 패턴. {query} 자리에 책 제목이 들어간다.
+// 대구 수성구립범어도서관은 기본 예시로 미리 알려진 값을 넣어준다.
+export const KNOWN_SEARCH_URL_PATTERNS = {
+  "127072": "https://library.daegu.go.kr/beomeo/intro/search/index.do?menu_idx=9&title={query}",
+};
+
+export function setLibrarySearchPattern(libCode, pattern) {
+  updateData((d) => {
+    const lib = d.libraries.find((l) => l.libCode === libCode);
+    if (lib) lib.searchUrlPattern = pattern;
   });
 }
 
@@ -160,6 +174,7 @@ export function addBook(input) {
     read: null,
     memo: input.memo || "",
     foreignCategory: input.foreignCategory || null, // "literature" | "nonfiction" | "general" (영어원서, KDC 없을 때만)
+    coverUrl: input.coverUrl || "", // 정보나루 bookImageURL, 없으면 구글 북스로 나중에 보강
     createdAt: Date.now(),
   };
   updateData((d) => {
@@ -254,6 +269,8 @@ export function reborrowBook(id) {
     kdc: original.kdc,
     libCode: original.libCode,
     libName: original.libName,
+    foreignCategory: original.foreignCategory,
+    coverUrl: original.coverUrl,
     status: "borrowed",
   });
 }

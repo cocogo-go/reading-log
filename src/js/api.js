@@ -102,6 +102,7 @@ export async function srchByIsbn(isbn13) {
     authors: book.authors || "",
     publisher: book.publisher || "",
     class_no: book.class_no || "",
+    bookImageURL: book.bookImageURL || "",
   };
 }
 
@@ -130,6 +131,7 @@ export async function usageAnalysisList(isbn13) {
     bookname: b.book.bookname || "",
     authors: b.book.authors || "",
     publisher: b.book.publisher || "",
+    bookImageURL: b.book.bookImageURL || "",
   }));
 }
 

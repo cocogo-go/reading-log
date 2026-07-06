@@ -1,5 +1,5 @@
 import { getData, getDisplayStatus } from "../store.js";
-import { renderBookCard } from "./bookCard.js";
+import { renderBookCard, wireCoverFallbacks } from "./bookCard.js";
 import { openBookDetail } from "./bookDetail.js";
 import { CATEGORIES, computeCounts, buildDietComment } from "../kdc.js";
 import { openDietChart } from "./dietChart.js";
@@ -87,6 +87,7 @@ export function renderHomeView(container) {
       openBookDetail(el.dataset.bookId, () => renderHomeView(container));
     });
   });
+  wireCoverFallbacks(container);
 
   container.querySelector("#diet-preview").addEventListener("click", openDietChart);
   container.querySelector("#interest-entry").addEventListener("click", openInterestMap);

@@ -8,6 +8,7 @@ import {
   addLibrary,
   removeLibrary,
   isLibrarySaved,
+  setLibrarySearchPattern,
   exportBackup,
   importBackup,
 } from "../store.js";
@@ -50,16 +51,41 @@ function renderSavedLibraries() {
   return data.libraries
     .map(
       (l) => `
-    <div class="lib-item">
-      <div>
-        <div class="lib-name">${escapeHtml(l.libName)}</div>
-        <div class="lib-address">${escapeHtml(l.address || "")}</div>
+    <div class="lib-item" style="flex-direction:column; align-items:stretch; gap:8px;">
+      <div style="display:flex; justify-content:space-between;">
+        <div>
+          <div class="lib-name">${escapeHtml(l.libName)}</div>
+          <div class="lib-address">${escapeHtml(l.address || "")}</div>
+        </div>
+        <button type="button" class="btn btn-secondary" data-remove-lib="${l.libCode}">삭제</button>
       </div>
-      <button type="button" class="btn btn-secondary" data-remove-lib="${l.libCode}">삭제</button>
+      <div class="row">
+        <input
+          type="text"
+          class="input"
+          data-search-pattern-input="${l.libCode}"
+          placeholder="청구기호 검색 URL (예: https://.../search?title={query})"
+          value="${escapeHtml(l.searchUrlPattern || "")}"
+        />
+        <button type="button" class="btn btn-secondary" data-search-pattern-save="${l.libCode}">저장</button>
+      </div>
     </div>
   `
     )
     .join("");
+}
+
+function wireLibrarySearchPatterns(container) {
+  container.querySelectorAll("[data-search-pattern-save]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const libCode = btn.dataset.searchPatternSave;
+      const input = container.querySelector(`[data-search-pattern-input="${libCode}"]`);
+      setLibrarySearchPattern(libCode, input.value.trim());
+      const original = btn.textContent;
+      btn.textContent = "저장됨";
+      setTimeout(() => (btn.textContent = original), 1200);
+    });
+  });
 }
 
 function renderSearchResults() {
@@ -179,6 +205,7 @@ export function renderSettingsView(container) {
       renderSettingsView(container);
     });
   });
+  wireLibrarySearchPatterns(container);
 
   const searchBtn = container.querySelector("#lib-search-btn");
   searchBtn.addEventListener("click", async () => {
@@ -270,6 +297,7 @@ function wireAddLibButtons(container) {
           renderSettingsView(container);
         });
       });
+      wireLibrarySearchPatterns(container);
       container.querySelector("#lib-search-results").innerHTML = renderSearchResults();
       wireAddLibButtons(container);
     });

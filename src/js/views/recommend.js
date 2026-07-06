@@ -1,6 +1,7 @@
 import { getData, addBook, borrowCount } from "../store.js";
 import { AGE_GROUPS, loanItemSrch, bookExist, enrichKeywords } from "../api.js";
-import { escapeHtml } from "./bookCard.js";
+import { enrichBookMetadata } from "../googleBooksApi.js";
+import { escapeHtml, renderCoverThumb, wireCoverFallbacks } from "./bookCard.js";
 
 let overlayEl = null;
 
@@ -90,6 +91,7 @@ function render() {
         return;
       }
       listEl.innerHTML = books.map((b, i) => renderRecItem(b, i)).join("");
+      wireCoverFallbacks(listEl);
       wireAvailability(listEl, books);
       wireAddButtons(listEl, books);
     } catch (err) {
@@ -101,11 +103,14 @@ function render() {
     const count = borrowCount(b.isbn13);
     return `
       <div class="lib-item" style="align-items:flex-start;" data-rec-idx="${i}">
-        <div style="min-width:0;">
-          <div class="lib-name">${escapeHtml(b.bookname)}</div>
-          <div class="lib-address">${escapeHtml(b.authors || "")}${b.authors && b.publisher ? " · " : ""}${escapeHtml(b.publisher || "")}</div>
-          <div class="hint" id="avail-${i}" style="margin-top:4px;">${getData().libraries.length > 0 ? "대출 가능 여부 확인 중..." : ""}</div>
-          ${count > 0 ? `<div class="hint" style="color:var(--stamp); margin-top:2px;">이미 ${count}번 빌린 책이에요!</div>` : ""}
+        <div style="display:flex; gap:10px; min-width:0;">
+          ${renderCoverThumb({ title: b.bookname, coverUrl: b.bookImageURL }, "sm")}
+          <div style="min-width:0;">
+            <div class="lib-name">${escapeHtml(b.bookname)}</div>
+            <div class="lib-address">${escapeHtml(b.authors || "")}${b.authors && b.publisher ? " · " : ""}${escapeHtml(b.publisher || "")}</div>
+            <div class="hint" id="avail-${i}" style="margin-top:4px;">${getData().libraries.length > 0 ? "대출 가능 여부 확인 중..." : ""}</div>
+            ${count > 0 ? `<div class="hint" style="color:var(--stamp); margin-top:2px;">이미 ${count}번 빌린 책이에요!</div>` : ""}
+          </div>
         </div>
         <button type="button" class="btn btn-secondary" data-add-idx="${i}" style="flex-shrink:0;">담기</button>
       </div>
@@ -138,16 +143,18 @@ function render() {
           return;
         }
         const b = books[Number(btn.dataset.addIdx)];
-        addBook({
+        const newBook = addBook({
           memberId: memberSelect.value,
           isbn13: b.isbn13 || "",
           title: b.bookname,
           author: b.authors || "",
           publisher: b.publisher || "",
           kdc: b.class_no || "",
+          coverUrl: b.bookImageURL || "",
           status: "willBorrow",
         });
         enrichKeywords(b.isbn13);
+        enrichBookMetadata(newBook);
         btn.textContent = "담았어요";
         btn.disabled = true;
       });

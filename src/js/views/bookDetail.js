@@ -12,7 +12,8 @@ import {
   addBook,
 } from "../store.js";
 import { bookExist, usageAnalysisList, enrichKeywords } from "../api.js";
-import { escapeHtml, statusLabel } from "./bookCard.js";
+import { enrichBookMetadata } from "../googleBooksApi.js";
+import { escapeHtml, statusLabel, renderCoverThumb, wireCoverFallbacks } from "./bookCard.js";
 
 const UNDERLINE_PROMPTS = [
   "아이가 어느 장면에서 웃었나요?",
@@ -93,12 +94,17 @@ function render(bookId, onChange) {
     </div>
     <div class="overlay-body">
       <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-          <div>
-            <div class="serif" style="font-size:19px; font-weight:700;">${escapeHtml(book.title)}</div>
-            <div class="hint" style="margin-top:4px;">${escapeHtml(book.author || "")}${book.author && book.publisher ? " · " : ""}${escapeHtml(book.publisher || "")}</div>
+        <div style="display:flex; gap:14px;">
+          ${renderCoverThumb(book, "lg")}
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+              <div>
+                <div class="serif" style="font-size:19px; font-weight:700;">${escapeHtml(book.title)}</div>
+                <div class="hint" style="margin-top:4px;">${escapeHtml(book.author || "")}${book.author && book.publisher ? " · " : ""}${escapeHtml(book.publisher || "")}</div>
+              </div>
+              <span class="stamp ${status === "overdue" ? "stamp--out" : status === "returned" || status === "willBorrow" ? "stamp--muted" : ""}">${statusLabel(status)}</span>
+            </div>
           </div>
-          <span class="stamp ${status === "overdue" ? "stamp--out" : status === "returned" || status === "willBorrow" ? "stamp--muted" : ""}">${statusLabel(status)}</span>
         </div>
 
         <div style="margin-top:16px; font-size:14px; line-height:2;">
@@ -157,6 +163,7 @@ function render(bookId, onChange) {
   overlayEl.querySelector("#detail-close").addEventListener("click", () => {
     closeDetail();
   });
+  wireCoverFallbacks(overlayEl);
 
   if (book.foreignCategory) {
     overlayEl.querySelector("#fc-lit").addEventListener("click", () => {
@@ -213,8 +220,9 @@ function render(bookId, onChange) {
   } else if (status === "returned") {
     actionArea.innerHTML = `<button type="button" class="btn btn-primary btn-block" id="reborrow">또 빌렸어요</button>`;
     actionArea.querySelector("#reborrow").addEventListener("click", () => {
-      reborrowBook(bookId);
+      const newBook = reborrowBook(bookId);
       enrichKeywords(book.isbn13);
+      if (newBook) enrichBookMetadata(newBook);
       onChange?.();
       closeDetail();
     });
@@ -298,17 +306,35 @@ async function loadAvailability(book) {
     );
     if (!overlayEl || !overlayEl.contains(slot)) return; // 그 사이 화면이 바뀌었으면 반영하지 않는다
     slot.innerHTML = results
-      .map(({ lib, status }) => {
+      .map(({ lib, status }, i) => {
         const icon = status === "available" ? "🟢" : status === "unavailable" ? "🔴" : "⚪";
         const label = status === "available" ? "대출가능" : status === "unavailable" ? "대출중" : "미소장";
+        const shelfHint = status !== "notFound" && book.kdc ? `<span class="hint" style="margin:0;">${escapeHtml(book.kdc)} 서가</span>` : "";
+        const callNoBtn =
+          lib.searchUrlPattern && status !== "notFound"
+            ? `<button type="button" class="btn btn-secondary" data-callno="${i}" style="margin-top:6px;">청구기호 확인</button>`
+            : "";
         return `
-          <div class="lib-item">
-            <div class="lib-name">${icon} ${escapeHtml(lib.libName)}</div>
-            <span class="hint" style="margin:0;">${label}</span>
+          <div class="lib-item" style="align-items:flex-start;">
+            <div>
+              <div class="lib-name">${icon} ${escapeHtml(lib.libName)}</div>
+              ${shelfHint}
+            </div>
+            <div style="text-align:right;">
+              <span class="hint" style="margin:0;">${label}</span>
+              ${callNoBtn}
+            </div>
           </div>
         `;
       })
       .join("");
+    slot.querySelectorAll("[data-callno]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const { lib } = results[Number(btn.dataset.callno)];
+        const url = lib.searchUrlPattern.replace("{query}", encodeURIComponent(book.title));
+        window.open(url, "_blank", "noopener");
+      });
+    });
   } catch {
     if (overlayEl && overlayEl.contains(slot)) {
       slot.innerHTML = `<p class="hint" style="margin:0;">대출 가능 여부를 불러오지 못했어요.</p>`;
@@ -332,27 +358,33 @@ async function loadCoLoanBooks(book, onChange) {
       .map(
         (b, i) => `
       <div class="lib-item">
-        <div style="min-width:0;">
-          <div class="lib-name">${escapeHtml(b.bookname)}</div>
-          <div class="lib-address">${escapeHtml(b.authors || "")}${b.authors && b.publisher ? " · " : ""}${escapeHtml(b.publisher || "")}</div>
+        <div style="display:flex; gap:10px; min-width:0;">
+          ${renderCoverThumb({ title: b.bookname, coverUrl: b.bookImageURL }, "sm")}
+          <div style="min-width:0;">
+            <div class="lib-name">${escapeHtml(b.bookname)}</div>
+            <div class="lib-address">${escapeHtml(b.authors || "")}${b.authors && b.publisher ? " · " : ""}${escapeHtml(b.publisher || "")}</div>
+          </div>
         </div>
         <button type="button" class="btn btn-secondary" data-coloan-add="${i}" style="flex-shrink:0;">담기</button>
       </div>
     `
       )
       .join("");
+    wireCoverFallbacks(slot);
     slot.querySelectorAll("[data-coloan-add]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const b = books[Number(btn.dataset.coloanAdd)];
-        addBook({
+        const newBook = addBook({
           memberId: book.memberId,
           isbn13: b.isbn13 || "",
           title: b.bookname,
           author: b.authors || "",
           publisher: b.publisher || "",
+          coverUrl: b.bookImageURL || "",
           status: "willBorrow",
         });
         enrichKeywords(b.isbn13);
+        enrichBookMetadata(newBook);
         onChange?.();
         btn.textContent = "담았어요";
         btn.disabled = true;

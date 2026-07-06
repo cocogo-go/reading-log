@@ -1,5 +1,5 @@
 import { getData, getDisplayStatus } from "../store.js";
-import { renderBookCard, statusLabel, escapeHtml } from "./bookCard.js";
+import { renderBookCard, statusLabel, escapeHtml, wireCoverFallbacks } from "./bookCard.js";
 import { openBookDetail } from "./bookDetail.js";
 
 const STATUS_FILTERS = ["all", "willBorrow", "borrowed", "overdue", "returned"];
@@ -52,6 +52,7 @@ export function renderShelfView(container) {
         openBookDetail(el.dataset.bookId, renderList);
       });
     });
+    wireCoverFallbacks(listSlot);
   }
 
   container.querySelector("#shelf-search").addEventListener("input", (e) => {
