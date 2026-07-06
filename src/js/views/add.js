@@ -18,6 +18,19 @@ function extractIsbn13(text) {
   return digits.length === 13 ? digits : null;
 }
 
+// ISBN 같은 작은 글자는 OCR이 놓치기 쉽지만, 책 제목은 대개 큰 글씨라 비교적 잘 읽힌다.
+// 메타데이터로 보이는 줄을 걸러내고 한글이 섞인 가장 긴 줄을 제목 후보로 추정한다.
+const OCR_META_LINE_RE = /^(ISBN|저자|출판|발행|형태|분류|표준번호|자료유형|소장|마크|isbn)/i;
+
+function guessTitleFromText(text) {
+  const candidates = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 4 && /[가-힣]/.test(line) && !OCR_META_LINE_RE.test(line));
+  if (candidates.length === 0) return "";
+  return candidates.reduce((longest, line) => (line.length > longest.length ? line : longest), "");
+}
+
 function debounce(fn, ms) {
   let t;
   return (...args) => {
@@ -123,8 +136,13 @@ function renderOcrScreen(onSaved) {
       if (isbn13) {
         handleScanned(isbn13, onSaved);
       } else {
-        statusEl.textContent = "ISBN을 찾지 못했어요. 사진이 선명한지 확인하거나 직접 입력해주세요.";
-        pickBtn.disabled = false;
+        const guessedTitle = guessTitleFromText(text);
+        if (guessedTitle) {
+          renderManualForm(onSaved, { guessedTitle });
+        } else {
+          statusEl.textContent = "ISBN도 제목도 찾지 못했어요. 사진이 선명한지 확인하거나 직접 입력해주세요.";
+          pickBtn.disabled = false;
+        }
       }
     } catch (err) {
       if (overlayEl) {
@@ -405,6 +423,12 @@ function renderManualForm(onSaved, prefill = null) {
     clearSelection();
     runSearch(titleInput.value.trim());
   });
+
+  // 사진 인식이 ISBN은 못 찾았지만 제목으로 짐작되는 줄은 찾았을 때 — 자동완성으로 이어준다
+  if (prefill?.guessedTitle) {
+    titleInput.value = prefill.guessedTitle;
+    runSearch(prefill.guessedTitle);
+  }
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
