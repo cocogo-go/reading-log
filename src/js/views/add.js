@@ -25,8 +25,14 @@ const OCR_META_LINE_RE = /^(ISBN|저자|출판|발행|형태|분류|표준번호
 
 function guessTitleFromLines(lines) {
   const candidates = (lines || [])
-    .map((l) => ({ text: l.text.trim(), height: l.bbox.y1 - l.bbox.y0 }))
-    .filter(({ text }) => text.length >= 4 && /[가-힣]/.test(text) && !OCR_META_LINE_RE.test(text));
+    .map((l) => ({ text: l.text.trim(), height: l.bbox.y1 - l.bbox.y0, confidence: l.confidence }))
+    .filter(
+      ({ text, confidence }) =>
+        text.length >= 6 && // 너무 짧으면 그림/아이콘을 잘못 읽은 파편일 가능성이 크다
+        confidence >= 60 && // 신뢰도가 낮으면 표지 그림 등을 오인식했을 가능성이 크다
+        /[가-힣]/.test(text) &&
+        !OCR_META_LINE_RE.test(text)
+    );
   if (candidates.length === 0) return "";
   return candidates.reduce((tallest, line) => (line.height > tallest.height ? line : tallest)).text;
 }
@@ -423,9 +429,11 @@ function renderManualForm(onSaved, prefill = null) {
   });
 
   // 사진 인식이 ISBN은 못 찾았지만 제목으로 짐작되는 줄은 찾았을 때 — 자동완성으로 이어준다
+  // (사진 인식은 완벽하지 않을 수 있어서 "추정"이라는 걸 분명히 알려주고 확인을 유도한다)
   if (prefill?.guessedTitle) {
     titleInput.value = prefill.guessedTitle;
     runSearch(prefill.guessedTitle);
+    dupNotice.innerHTML = `<div class="hint" style="margin-top:6px;">사진에서 제목을 추정했어요. 맞는지 확인하고, 다르면 지우고 다시 입력해주세요.</div>`;
   }
 
   form.addEventListener("submit", (e) => {
