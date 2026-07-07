@@ -11,7 +11,7 @@ import {
   updateBook,
   addBook,
 } from "../store.js";
-import { bookExist, usageAnalysisList, enrichKeywords } from "../api.js";
+import { bookExist, usageAnalysisList, enrichKeywords, srchBooks } from "../api.js";
 import { enrichBookMetadata } from "../googleBooksApi.js";
 import { escapeHtml, statusLabel, renderCoverThumb, wireCoverFallbacks } from "./bookCard.js";
 
@@ -130,6 +130,21 @@ function render(bookId, onChange) {
       </div>
 
       ${
+        !book.isbn13
+          ? `<div class="card" style="margin-top:16px;">
+              <h3 style="font-size:14px; margin-bottom:10px;">책 정보 연결하기</h3>
+              <p class="hint" style="margin:0 0 10px;">정보나루에서 이 책을 찾아 연결하면 표지·대출가능여부·분류가 자동으로 채워져요.</p>
+              <div class="row">
+                <input type="text" class="input" id="link-title-input" value="${escapeHtml(book.title)}" />
+                <button type="button" class="btn btn-secondary" id="link-search-btn">검색</button>
+              </div>
+              <p class="hint" id="link-status" style="margin-top:8px;"></p>
+              <div id="link-results" style="margin-top:8px;"></div>
+            </div>`
+          : ""
+      }
+
+      ${
         status === "willBorrow"
           ? `<div class="card" style="margin-top:16px;">
               <h3 style="font-size:14px; margin-bottom:10px;">도서관 대출 가능 여부</h3>
@@ -164,6 +179,10 @@ function render(bookId, onChange) {
     closeDetail();
   });
   wireCoverFallbacks(overlayEl);
+
+  if (!book.isbn13) {
+    wireLinkSearch(book, onChange);
+  }
 
   if (book.foreignCategory) {
     overlayEl.querySelector("#fc-lit").addEventListener("click", () => {
@@ -284,6 +303,68 @@ function renderReturnFlow(book, onChange) {
     finish();
   });
   overlayEl.querySelector("#return-skip").addEventListener("click", finish);
+}
+
+function wireLinkSearch(book, onChange) {
+  const titleInput = overlayEl.querySelector("#link-title-input");
+  const searchBtn = overlayEl.querySelector("#link-search-btn");
+  const statusEl = overlayEl.querySelector("#link-status");
+  const resultsEl = overlayEl.querySelector("#link-results");
+  if (!titleInput || !searchBtn) return;
+
+  searchBtn.addEventListener("click", async () => {
+    const keyword = titleInput.value.trim();
+    if (!keyword) return;
+    statusEl.textContent = "검색 중이에요...";
+    resultsEl.innerHTML = "";
+    searchBtn.disabled = true;
+    try {
+      const results = await srchBooks(keyword);
+      if (!overlayEl) return;
+      if (results.length === 0) {
+        statusEl.textContent = "찾지 못했어요. 다른 검색어로 시도해보세요.";
+        return;
+      }
+      statusEl.textContent = "";
+      resultsEl.innerHTML = results
+        .slice(0, 8)
+        .map(
+          (b, i) => `
+        <div class="lib-item">
+          <div style="display:flex; gap:10px; min-width:0;">
+            ${renderCoverThumb({ title: b.bookname, coverUrl: b.bookImageURL }, "sm")}
+            <div style="min-width:0;">
+              <div class="lib-name">${escapeHtml(b.bookname)}</div>
+              <div class="lib-address">${escapeHtml(b.authors || "")}${b.authors && b.publisher ? " · " : ""}${escapeHtml(b.publisher || "")}</div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary" data-link-idx="${i}" style="flex-shrink:0;">연결</button>
+        </div>
+      `
+        )
+        .join("");
+      wireCoverFallbacks(resultsEl);
+      resultsEl.querySelectorAll("[data-link-idx]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const b = results[Number(btn.dataset.linkIdx)];
+          updateBook(book.id, {
+            isbn13: b.isbn13 || "",
+            author: book.author || b.authors || "",
+            publisher: book.publisher || b.publisher || "",
+            kdc: b.class_no || "",
+            coverUrl: book.coverUrl || b.bookImageURL || "",
+          });
+          enrichKeywords(b.isbn13);
+          onChange?.();
+          render(book.id, onChange);
+        });
+      });
+    } catch (err) {
+      statusEl.textContent = `검색에 실패했어요: ${err.message}`;
+    } finally {
+      searchBtn.disabled = false;
+    }
+  });
 }
 
 async function loadAvailability(book) {
