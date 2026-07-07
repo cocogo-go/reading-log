@@ -11,7 +11,7 @@ import {
   updateBook,
   addBook,
 } from "../store.js";
-import { bookExist, usageAnalysisList, enrichKeywords, srchBooks } from "../api.js";
+import { bookExist, usageAnalysisList, enrichKeywords, srchBooks, srchByIsbn } from "../api.js";
 import { enrichBookMetadata } from "../googleBooksApi.js";
 import { escapeHtml, statusLabel, renderCoverThumb, wireCoverFallbacks } from "./bookCard.js";
 
@@ -133,9 +133,9 @@ function render(bookId, onChange) {
         !book.isbn13
           ? `<div class="card" style="margin-top:16px;">
               <h3 style="font-size:14px; margin-bottom:10px;">책 정보 연결하기</h3>
-              <p class="hint" style="margin:0 0 10px;">정보나루에서 이 책을 찾아 연결하면 표지·대출가능여부·분류가 자동으로 채워져요.</p>
+              <p class="hint" style="margin:0 0 10px;">정보나루에서 이 책을 찾아 연결하면 표지·대출가능여부·분류가 자동으로 채워져요. 제목이나 ISBN으로 검색할 수 있어요.</p>
               <div class="row">
-                <input type="text" class="input" id="link-title-input" value="${escapeHtml(book.title)}" />
+                <input type="text" class="input" id="link-title-input" placeholder="제목 또는 ISBN" value="${escapeHtml(book.title)}" />
                 <button type="button" class="btn btn-secondary" id="link-search-btn">검색</button>
               </div>
               <p class="hint" id="link-status" style="margin-top:8px;"></p>
@@ -305,6 +305,8 @@ function renderReturnFlow(book, onChange) {
   overlayEl.querySelector("#return-skip").addEventListener("click", finish);
 }
 
+const ISBN13_RE = /^97[89]\d{10}$/;
+
 function wireLinkSearch(book, onChange) {
   const titleInput = overlayEl.querySelector("#link-title-input");
   const searchBtn = overlayEl.querySelector("#link-search-btn");
@@ -319,15 +321,21 @@ function wireLinkSearch(book, onChange) {
     resultsEl.innerHTML = "";
     searchBtn.disabled = true;
     try {
-      const results = await srchBooks(keyword);
+      const isbnDigits = keyword.replace(/[^\d]/g, "");
+      let results;
+      if (ISBN13_RE.test(isbnDigits)) {
+        const found = await srchByIsbn(isbnDigits);
+        results = found ? [found] : [];
+      } else {
+        results = await srchBooks(keyword, 30);
+      }
       if (!overlayEl) return;
       if (results.length === 0) {
         statusEl.textContent = "찾지 못했어요. 다른 검색어로 시도해보세요.";
         return;
       }
-      statusEl.textContent = "";
+      statusEl.textContent = `${results.length}건 찾았어요.`;
       resultsEl.innerHTML = results
-        .slice(0, 8)
         .map(
           (b, i) => `
         <div class="lib-item">

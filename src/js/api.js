@@ -50,9 +50,9 @@ async function callApi(endpoint, params = {}) {
   return json;
 }
 
-// 제목으로 책 검색 (자동완성용)
-export async function srchBooks(keyword) {
-  const json = await callApi("srchBooks", { keyword, pageSize: 10 });
+// 제목으로 책 검색 (자동완성/도서 검색용)
+export async function srchBooks(keyword, pageSize = 30) {
+  const json = await callApi("srchBooks", { keyword, pageSize });
   const docs = json?.response?.docs || [];
   return docs.map((d) => d.doc);
 }
