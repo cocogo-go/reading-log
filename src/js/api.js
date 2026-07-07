@@ -122,6 +122,23 @@ export function enrichKeywords(isbn13) {
     .catch(() => {});
 }
 
+// 검색일자를 포함한 최근 3일간의 대출 급상승 도서 (일자별 최대 5권)
+export async function hotTrend(searchDt) {
+  const json = await callApi("hotTrend", { searchDt });
+  const results = json?.response?.results || [];
+  return results.map((r) => ({
+    date: r.result.date,
+    docs: (r.result.docs || []).map((d) => d.doc),
+  }));
+}
+
+// 도서관별 신착도서 (등록일 기준 최신 도서)
+export async function newArrivalBook(libCode) {
+  const json = await callApi("newArrivalBook", { libCode });
+  const docs = json?.response?.docs || [];
+  return docs.map((d) => d.doc);
+}
+
 // 이 책과 함께 대출된 도서 목록
 export async function usageAnalysisList(isbn13) {
   const json = await callApi("usageAnalysisList", { isbn13 });
