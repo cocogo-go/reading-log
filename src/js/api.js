@@ -76,7 +76,7 @@ export async function bookExist(isbn13, libCode) {
 
 // 연령대별 인기대출도서
 export async function loanItemSrch(age) {
-  const json = await callApi("loanItemSrch", { age, pageSize: 20 });
+  const json = await callApi("loanItemSrch", { age, pageSize: 40 });
   const docs = json?.response?.docs || [];
   return docs.map((d) => d.doc);
 }
