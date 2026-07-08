@@ -13,6 +13,23 @@ const SOURCES = [
   { code: "curated", name: "기관 추천" },
 ];
 
+// 급상승/신착도서는 정보나루 API에 연령 파라미터가 없어서, ISBN 부가기호(addition_symbol)의
+// 첫 자리(독자대상기호: 0교양,1실용,2여성,4청소년,5학습참고서(중고),6학습참고서(초등),7아동,9전문)로
+// 아동/청소년/성인을 대략 구분한다. 정확한 연령 매칭은 아니라 "대략" 필터임을 안내 문구로 알린다.
+const READER_FILTERS = [
+  { code: "all", name: "전체" },
+  { code: "child", name: "아동" },
+  { code: "teen", name: "청소년" },
+  { code: "adult", name: "성인" },
+];
+
+function readerBucket(book) {
+  const first = String(book.addition_symbol || "")[0];
+  if (first === "7" || first === "6") return "child";
+  if (first === "4" || first === "5") return "teen";
+  return "adult";
+}
+
 export function openRecommend() {
   closeRecommend();
   overlayEl = document.createElement("div");
@@ -33,8 +50,19 @@ function render() {
   let ageCode = AGE_GROUPS[2].code; // 초등을 기본값으로
   let source = "popular"; // "popular" | "hot" | "new" | "curated"
   let libCode = data.libraries[0]?.libCode || "";
+  let readerFilter = "all";
+
+  let rawHotBooks = null;
+  let rawNewBooks = null;
+  let rawNewLibCode = null;
+
+  function filterByReader(books) {
+    if (readerFilter === "all") return books;
+    return books.filter((b) => readerBucket(b) === readerFilter);
+  }
 
   function paint() {
+    const showReaderFilter = source === "hot" || source === "new";
     overlayEl.innerHTML = `
       <div class="overlay-header">
         <h2 class="serif" style="font-size:18px;">추천도서</h2>
@@ -54,6 +82,14 @@ function render() {
               ? `<div class="filter-row" id="age-row">
                   ${AGE_GROUPS.map((a) => `<button type="button" class="filter-chip ${a.code === ageCode ? "active" : ""}" data-age="${a.code}">${a.name}</button>`).join("")}
                 </div>`
+              : ""
+          }
+          ${
+            showReaderFilter
+              ? `<div class="filter-row" id="reader-row">
+                  ${READER_FILTERS.map((r) => `<button type="button" class="filter-chip ${r.code === readerFilter ? "active" : ""}" data-reader="${r.code}">${r.name}</button>`).join("")}
+                </div>
+                <p class="hint" style="margin-top:-4px;">책 분류 기준 대략적인 구분이에요. 정확한 연령 매칭은 아닐 수 있어요.</p>`
               : ""
           }
           ${
@@ -89,6 +125,14 @@ function render() {
     overlayEl.querySelectorAll("[data-source]").forEach((btn) => {
       btn.addEventListener("click", () => {
         source = btn.dataset.source;
+        readerFilter = "all";
+        paint();
+      });
+    });
+
+    overlayEl.querySelectorAll("[data-reader]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        readerFilter = btn.dataset.reader;
         paint();
       });
     });
@@ -108,7 +152,8 @@ function render() {
       if (libSelect) {
         libSelect.addEventListener("change", () => {
           libCode = libSelect.value;
-          loadNew(libCode);
+          rawNewBooks = null;
+          paint();
         });
         loadNew(libCode);
       }
@@ -129,6 +174,10 @@ function render() {
   async function loadHot() {
     const listEl = overlayEl.querySelector("#rec-list");
     if (!listEl) return;
+    if (rawHotBooks) {
+      paintList(listEl, filterByReader(rawHotBooks), (b) => `📈 ${b._dateLabel} 기준 ${b.difference}단계 상승`);
+      return;
+    }
     try {
       const results = await hotTrend(todayStr());
       if (!overlayEl || !overlayEl.contains(listEl)) return;
@@ -136,7 +185,8 @@ function render() {
       results.forEach((r) => {
         r.docs.forEach((doc) => books.push({ ...doc, _dateLabel: r.date }));
       });
-      paintList(listEl, books, (b) => `📈 ${b._dateLabel} 기준 ${b.difference}단계 상승`);
+      rawHotBooks = books;
+      paintList(listEl, filterByReader(rawHotBooks), (b) => `📈 ${b._dateLabel} 기준 ${b.difference}단계 상승`);
     } catch (err) {
       listEl.innerHTML = `<p class="hint" style="margin:0;">급상승 도서를 불러오지 못했어요: ${escapeHtml(err.message)}</p>`;
     }
@@ -145,11 +195,17 @@ function render() {
   async function loadNew(libCode) {
     const listEl = overlayEl.querySelector("#rec-list");
     if (!listEl || !libCode) return;
+    if (rawNewBooks && rawNewLibCode === libCode) {
+      paintList(listEl, filterByReader(rawNewBooks), (b) => (b.reg_date ? `🆕 ${b.reg_date} 입고` : ""));
+      return;
+    }
     listEl.innerHTML = `<p class="hint" style="margin:0;">불러오는 중이에요...</p>`;
     try {
       const books = await newArrivalBook(libCode);
       if (!overlayEl || !overlayEl.contains(listEl)) return;
-      paintList(listEl, books, (b) => (b.reg_date ? `🆕 ${b.reg_date} 입고` : ""));
+      rawNewBooks = books;
+      rawNewLibCode = libCode;
+      paintList(listEl, filterByReader(rawNewBooks), (b) => (b.reg_date ? `🆕 ${b.reg_date} 입고` : ""));
     } catch (err) {
       listEl.innerHTML = `<p class="hint" style="margin:0;">신착도서를 불러오지 못했어요: ${escapeHtml(err.message)}</p>`;
     }
