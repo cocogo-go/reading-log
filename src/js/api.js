@@ -1,12 +1,11 @@
-// 정보나루(data4library.kr) API 클라이언트
+// 정보나루(data4library.kr) API 클라이언트.
 //
-// ⚠️ API 키는 코드에 하드코딩하지 않는다 (공개 저장소 배포 대상).
-// 사용자가 설정 화면에서 입력한 키를 localStorage(store.js)에 저장해 사용한다.
-// CORS는 실제 브라우저 fetch로 테스트 완료 (Access-Control-Allow-Origin: *) — 중계 서버 불필요.
+// 실제 인증키는 클라이언트에 두지 않는다. Cloudflare Worker(cloudflare-worker/reading-log-proxy.js)가
+// 서버 쪽 비밀로 키를 주입해 정보나루에 대신 요청해주므로, 사용자는 키 없이 바로 앱을 쓸 수 있다.
 
-import { getAuthKey, getKeywordsForIsbn, setKeywordsForIsbn } from "./store.js";
+import { getKeywordsForIsbn, setKeywordsForIsbn } from "./store.js";
 
-const BASE_URL = "https://data4library.kr/api";
+const PROXY_BASE_URL = "https://reading-log-proxy.gojihyego.workers.dev";
 
 // 시/도 지역 코드 (정보나루 region 파라미터)
 export const REGIONS = [
@@ -29,21 +28,37 @@ export const REGIONS = [
   { code: "39", name: "제주특별자치도" },
 ];
 
-async function callApi(endpoint, params = {}) {
-  const authKey = getAuthKey();
-  const query = new URLSearchParams({
-    ...params,
-    authKey,
-    format: "json",
-  });
-  const res = await fetch(`${BASE_URL}/${endpoint}?${query.toString()}`);
-  if (!res.ok) {
-    throw new Error(`정보나루 API 오류: ${res.status}`);
+// data4library.kr이 돌려주는 에러 메시지를 그대로 보여주면 사용자가 이해하기 어려워서
+// (한도 초과, 서버 점검 등) 상황에 맞는 안내 문구로 바꿔준다.
+function friendlyApiError(message) {
+  if (/트래픽|한도|초과|제한/.test(message || "")) {
+    return "오늘 도서관 정보 이용 한도를 넘었어요. 내일 다시 시도해주세요.";
   }
-  const json = await res.json();
+  return "도서관 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.";
+}
+
+async function callApi(endpoint, params = {}) {
+  const query = new URLSearchParams(params);
+  let res;
+  try {
+    res = await fetch(`${PROXY_BASE_URL}/api/${endpoint}?${query.toString()}`);
+  } catch {
+    throw new Error("도서관 서버에 연결하지 못했어요. 인터넷 연결을 확인해주세요.");
+  }
+
+  let json;
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error("도서관 서버 응답을 이해하지 못했어요. 잠시 후 다시 시도해주세요.");
+  }
+
+  if (!res.ok) {
+    throw new Error(friendlyApiError(json?.error));
+  }
   const err = json?.response?.error;
   if (err) {
-    const e = new Error(err);
+    const e = new Error(friendlyApiError(err));
     e.code = json.response.errCode;
     throw e;
   }
@@ -152,4 +167,4 @@ export async function usageAnalysisList(isbn13) {
   }));
 }
 
-export { callApi, getAuthKey };
+export { callApi };

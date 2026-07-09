@@ -3,8 +3,6 @@ import {
   canAddMember,
   addMember,
   removeMember,
-  getAuthKey,
-  setAuthKey,
   addLibrary,
   removeLibrary,
   isLibrarySaved,
@@ -115,8 +113,6 @@ function escapeHtml(str) {
 }
 
 export function renderSettingsView(container) {
-  const authKey = getAuthKey();
-
   container.innerHTML = `
     <h2 class="screen-title serif">설정</h2>
 
@@ -128,16 +124,6 @@ export function renderSettingsView(container) {
         <button type="submit" class="btn btn-primary" ${canAddMember() ? "" : "disabled"}>추가</button>
       </form>
       <p class="hint" style="margin-top:8px;">최대 5명까지 등록할 수 있어요. (${getData().members.length}/5)</p>
-    </div>
-
-    <div class="card">
-      <h3>정보나루 API 키</h3>
-      <p class="hint">data4library.kr에서 발급받은 인증키를 입력하면 도서관 검색과 책 자동완성을 쓸 수 있어요.</p>
-      <div class="row">
-        <input type="password" class="input" id="authkey-input" placeholder="API 키" value="${escapeHtml(authKey)}" />
-        <button type="button" class="btn btn-secondary" id="authkey-save-btn">저장</button>
-      </div>
-      <p class="hint" id="authkey-status" style="margin-top:8px;">${authKey ? "저장된 키가 있어요." : "아직 입력한 키가 없어요."}</p>
     </div>
 
     <div class="card">
@@ -191,14 +177,6 @@ export function renderSettingsView(container) {
     });
   });
 
-  container.querySelector("#authkey-save-btn").addEventListener("click", () => {
-    const value = container.querySelector("#authkey-input").value.trim();
-    setAuthKey(value);
-    container.querySelector("#authkey-status").textContent = value
-      ? "저장했어요. 이제 도서관 검색을 사용할 수 있어요."
-      : "아직 입력한 키가 없어요.";
-  });
-
   container.querySelectorAll("[data-remove-lib]").forEach((btn) => {
     btn.addEventListener("click", () => {
       removeLibrary(btn.dataset.removeLib);
@@ -213,10 +191,6 @@ export function renderSettingsView(container) {
     const keyword = container.querySelector("#dtl-region-input").value.trim();
     const statusEl = container.querySelector("#lib-search-status");
 
-    if (!getAuthKey()) {
-      statusEl.textContent = "먼저 위에서 정보나루 API 키를 저장해주세요.";
-      return;
-    }
     if (!region) {
       statusEl.textContent = "시/도를 선택해주세요.";
       return;
@@ -233,13 +207,7 @@ export function renderSettingsView(container) {
       container.querySelector("#lib-search-results").innerHTML = renderSearchResults();
       wireAddLibButtons(container);
     } catch (err) {
-      if (err.code === "vitalizationErr") {
-        statusEl.textContent = "아직 승인 대기 중인 키예요. 정보나루에서 승인되면 다시 시도해주세요.";
-      } else if (err.code === "authErr") {
-        statusEl.textContent = "키가 정확하지 않아요. 위에서 다시 확인해주세요.";
-      } else {
-        statusEl.textContent = `검색에 실패했어요: ${err.message}`;
-      }
+      statusEl.textContent = err.message || "검색에 실패했어요. 잠시 후 다시 시도해주세요.";
     } finally {
       searchBtn.disabled = false;
     }

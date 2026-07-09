@@ -432,9 +432,9 @@ async function loadAvailability(book) {
         window.open(url, "_blank", "noopener");
       });
     });
-  } catch {
+  } catch (err) {
     if (overlayEl && overlayEl.contains(slot)) {
-      slot.innerHTML = `<p class="hint" style="margin:0;">대출 가능 여부를 불러오지 못했어요.</p>`;
+      slot.innerHTML = `<p class="hint" style="margin:0;">${escapeHtml(err.message || "대출 가능 여부를 불러오지 못했어요.")}</p>`;
     }
   }
 }
@@ -487,9 +487,9 @@ async function loadCoLoanBooks(book, onChange) {
         btn.disabled = true;
       });
     });
-  } catch {
+  } catch (err) {
     if (overlayEl && overlayEl.contains(slot)) {
-      slot.innerHTML = `<p class="hint" style="margin:0;">함께 대출된 도서를 불러오지 못했어요.</p>`;
+      slot.innerHTML = `<p class="hint" style="margin:0;">${escapeHtml(err.message || "함께 대출된 도서를 불러오지 못했어요.")}</p>`;
     }
   }
 }

@@ -23,7 +23,11 @@ const ALLOWED_ENDPOINTS = new Set([
 ]);
 
 // 여러 origin(로컬 개발 서버 포함)을 허용해야 하면 여기 배열에 추가한다.
-const ALLOWED_ORIGINS = new Set(["https://cocogo-go.github.io"]);
+const ALLOWED_ORIGINS = new Set([
+  "https://cocogo-go.github.io",
+  "http://localhost:8777",
+  "http://127.0.0.1:8777",
+]);
 
 function corsHeaders(origin) {
   return {

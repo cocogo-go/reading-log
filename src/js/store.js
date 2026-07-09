@@ -20,7 +20,6 @@ const DEFAULT_DATA = {
   books: [],           // { id, memberId, isbn13, title, author, publisher, kdc, libCode, borrowedAt, dueAt, returnedAt, status, rating, read, underlineIds: [] }
   underlines: [],     // { id, bookId, memberId, text, createdAt }
   keywordsByIsbn: {}, // { [isbn13]: [{ word, weight }] } — 관심사 지도용 캐시
-  settings: { authKey: "" },
 };
 
 // 이 기능이 생기기 전에 이미 저장돼 있던 도서관에도 알려진 검색 URL 패턴을 채워준다.
@@ -98,16 +97,6 @@ export function removeMember(id) {
 }
 
 // ---------- 나의 도서관 ----------
-
-export function getAuthKey() {
-  return data.settings.authKey || "";
-}
-
-export function setAuthKey(key) {
-  updateData((d) => {
-    d.settings.authKey = key;
-  });
-}
 
 export function isLibrarySaved(libCode) {
   return data.libraries.some((l) => l.libCode === libCode);

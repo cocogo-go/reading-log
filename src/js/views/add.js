@@ -1,4 +1,4 @@
-import { getData, addBook, addMember, borrowCount, getAuthKey } from "../store.js";
+import { getData, addBook, addMember, borrowCount } from "../store.js";
 import { srchBooks, srchByIsbn, enrichKeywords } from "../api.js";
 import { escapeHtml } from "./bookCard.js";
 import { enrichBookMetadata } from "../googleBooksApi.js";
@@ -215,14 +215,13 @@ async function handleScanned(isbn13, onSaved) {
     </div>
   `;
   let book = null;
-  if (getAuthKey()) {
-    try {
-      book = await srchByIsbn(isbn13);
-    } catch {
-      book = null;
-    }
+  let lookupError = null;
+  try {
+    book = await srchByIsbn(isbn13);
+  } catch (err) {
+    lookupError = err.message;
   }
-  renderManualForm(onSaved, book || { isbn13 });
+  renderManualForm(onSaved, book ? { ...book } : { isbn13, lookupError });
 }
 
 function renderManualForm(onSaved, prefill = null) {
@@ -271,7 +270,7 @@ function renderManualForm(onSaved, prefill = null) {
                   ? `<select class="input" id="member-select">
                       ${members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("")}
                     </select>`
-                  : `<input type="text" class="input" id="member-name-input" placeholder="예: 엄마, 첫째" required />
+                  : `<input type="text" class="input" id="new-member-name-input" placeholder="예: 엄마, 첫째" required />
                     <p class="hint" style="margin-top:6px;">처음이시네요! 이름을 입력하면 바로 가족 구성원으로 등록돼요. 나중에 설정에서 더 추가할 수 있어요.</p>`
               }
             </div>
@@ -384,7 +383,8 @@ function renderManualForm(onSaved, prefill = null) {
   if (prefill?.bookname) {
     pickBook(prefill);
   } else if (scannedIsbn13) {
-    showDupNotice(scannedIsbn13, `스캔했어요 (ISBN ${escapeHtml(scannedIsbn13)}) · 정보를 못 찾아서 제목을 입력해주세요`);
+    const reason = prefill?.lookupError ? prefill.lookupError : "정보를 못 찾아서 제목을 입력해주세요";
+    showDupNotice(scannedIsbn13, `스캔했어요 (ISBN ${escapeHtml(scannedIsbn13)}) · ${escapeHtml(reason)}`);
   }
 
   const runSearch = debounce(async (keyword) => {
@@ -393,7 +393,6 @@ function renderManualForm(onSaved, prefill = null) {
       acList.innerHTML = "";
       return;
     }
-    if (!getAuthKey()) return;
     try {
       const results = await srchBooks(keyword);
       if (results.length === 0) {
@@ -416,9 +415,10 @@ function renderManualForm(onSaved, prefill = null) {
       acList.querySelectorAll("[data-idx]").forEach((btn) => {
         btn.addEventListener("click", () => pickBook(results[Number(btn.dataset.idx)]));
       });
-    } catch {
+    } catch (err) {
       acList.hidden = true;
       acList.innerHTML = "";
+      dupNotice.innerHTML = `<div class="hint" style="color:var(--out); margin-top:6px;">${escapeHtml(err.message)}</div>`;
     }
   }, 400);
 
@@ -444,7 +444,7 @@ function renderManualForm(onSaved, prefill = null) {
     if (members.length > 0) {
       memberId = overlayEl.querySelector("#member-select").value;
     } else {
-      const nameInput = overlayEl.querySelector("#member-name-input");
+      const nameInput = overlayEl.querySelector("#new-member-name-input");
       const name = nameInput.value.trim();
       if (!name) {
         nameInput.focus();
