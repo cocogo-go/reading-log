@@ -15,6 +15,33 @@ import { todayStr } from "../dateUtils.js";
 
 let lastSearchResults = [];
 
+const FAQ_ITEMS = [
+  {
+    q: "회원가입이 필요한가요?",
+    a: "아니요. 가입도 로그인도 없어요. 열자마자 바로 기록할 수 있어요.",
+  },
+  {
+    q: "우리 가족 기록은 어디에 저장되나요?",
+    a: "지금 쓰고 계신 폰에만 저장돼요. 서버로 전송되지 않아서 다른 사람은 볼 수 없어요. 대신 폰을 바꾸실 때는 설정의 '내보내기'로 기록을 옮겨주세요.",
+  },
+  {
+    q: "무료인가요? 광고가 있나요?",
+    a: "네, 무료이고 광고도 없어요. 도서관 다니는 한 엄마가 우리 가족 쓰려고 만든 앱이에요.",
+  },
+  {
+    q: "대출 가능 여부는 어떻게 알아요?",
+    a: "국립중앙도서관이 운영하는 공공데이터(도서관 정보나루)로 확인해요. 전국 공공도서관이 대상이라, 설정에서 자주 가는 도서관을 등록하면 돼요.",
+  },
+  {
+    q: "왜 홈 화면에 추가하라고 하나요?",
+    a: "카카오톡 안에서 열면 기록이 사라질 수 있어요. 사파리나 크롬으로 연 다음 '홈 화면에 추가'를 하면 앱처럼 쓸 수 있고 기록도 안전하게 보관돼요.",
+  },
+  {
+    q: "도서관 앱이랑 뭐가 다른가요?",
+    a: "도서관 앱은 '대출 관리'를, 이 앱은 '우리 가족의 독서 기록'을 남겨요. 누가 뭘 좋아했는지, 어떤 책을 몇 번이나 빌렸는지, 아이의 관심사가 어떻게 변해가는지가 쌓여요.",
+  },
+];
+
 function memberInitial(name) {
   return name.trim().slice(0, 1) || "?";
 }
@@ -155,6 +182,23 @@ export function renderSettingsView(container) {
       <input type="file" id="import-file-input" accept="application/json" hidden />
       <p class="hint" id="backup-status" style="margin-top:8px;"></p>
     </div>
+
+    <div class="card">
+      <h3>자주 묻는 질문</h3>
+      <div class="faq-list">
+        ${FAQ_ITEMS.map(
+          (item, i) => `
+          <div class="faq-item">
+            <button type="button" class="faq-question" data-faq-toggle="${i}">
+              <span>${escapeHtml(item.q)}</span>
+              <span class="faq-arrow">›</span>
+            </button>
+            <p class="faq-answer" id="faq-answer-${i}" hidden>${escapeHtml(item.a)}</p>
+          </div>
+        `
+        ).join("")}
+      </div>
+    </div>
   `;
 
   container.querySelector("#member-form").addEventListener("submit", (e) => {
@@ -214,6 +258,15 @@ export function renderSettingsView(container) {
   });
 
   wireAddLibButtons(container);
+
+  container.querySelectorAll("[data-faq-toggle]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const answer = container.querySelector(`#faq-answer-${btn.dataset.faqToggle}`);
+      const open = !answer.hidden;
+      answer.hidden = open;
+      btn.classList.toggle("open", !open);
+    });
+  });
 
   const backupStatus = container.querySelector("#backup-status");
 

@@ -682,3 +682,51 @@ select.input:focus {
 .inapp-banner-btn {
   margin-top: 10px;
 }
+
+/* ---------- 자주 묻는 질문 (아코디언) ---------- */
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--line);
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+.faq-question {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 2px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.faq-arrow {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 18px;
+  transition: transform 0.2s ease;
+}
+
+.faq-question.open .faq-arrow {
+  transform: rotate(90deg);
+  color: var(--spine);
+}
+
+.faq-answer {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: -4px 0 14px;
+  padding-right: 4px;
+}
