@@ -1,4 +1,4 @@
-const CACHE_NAME = "reading-log-v23";
+const CACHE_NAME = "reading-log-v24";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -20,9 +20,11 @@ const APP_SHELL = [
   "./src/js/views/dietChart.js",
   "./src/js/views/recommend.js",
   "./src/js/views/interestMap.js",
+  "./src/js/views/onboarding.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
+  "./assets/og-image.png",
 ];
 
 self.addEventListener("install", (event) => {

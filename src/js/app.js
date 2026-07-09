@@ -3,6 +3,7 @@ import { renderHomeView } from "./views/home.js";
 import { renderShelfView } from "./views/shelf.js";
 import { renderUnderlineView } from "./views/underline.js";
 import { openAddFlow } from "./views/add.js";
+import { shouldShowOnboarding, renderOnboarding } from "./views/onboarding.js";
 
 const TABS = ["home", "shelf", "underline", "settings"];
 
@@ -12,6 +13,10 @@ const RENDERERS = {
   underline: renderUnderlineView,
   settings: renderSettingsView,
 };
+
+export function navigateToTab(name) {
+  showView(name);
+}
 
 function showView(name) {
   for (const tab of TABS) {
@@ -43,6 +48,10 @@ function init() {
 
   const initial = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "home";
   showView(initial);
+
+  if (shouldShowOnboarding()) {
+    renderOnboarding(() => showView(currentTab()));
+  }
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./service-worker.js").catch((err) => {

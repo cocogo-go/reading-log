@@ -1,4 +1,4 @@
-import { getData, addBook, borrowCount, getAuthKey } from "../store.js";
+import { getData, addBook, addMember, borrowCount, getAuthKey } from "../store.js";
 import { srchBooks, srchByIsbn, enrichKeywords } from "../api.js";
 import { escapeHtml } from "./bookCard.js";
 import { enrichBookMetadata } from "../googleBooksApi.js";
@@ -242,12 +242,7 @@ function renderManualForm(onSaved, prefill = null) {
       <button type="button" class="close-btn" id="add-close">✕</button>
     </div>
     <div class="overlay-body">
-      ${
-        members.length === 0
-          ? `<div class="card">
-              <p class="hint" style="margin:0;">먼저 설정에서 가족 구성원을 한 명 이상 등록해주세요.</p>
-            </div>`
-          : `<form id="book-form">
+      <form id="book-form">
             <div class="field-group">
               <span class="field-label">언제부터 함께할까요?</span>
               <div class="status-toggle">
@@ -271,9 +266,14 @@ function renderManualForm(onSaved, prefill = null) {
 
             <div class="field-group">
               <span class="field-label">읽는 사람</span>
-              <select class="input" id="member-select">
-                ${members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("")}
-              </select>
+              ${
+                members.length > 0
+                  ? `<select class="input" id="member-select">
+                      ${members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join("")}
+                    </select>`
+                  : `<input type="text" class="input" id="member-name-input" placeholder="예: 엄마, 첫째" required />
+                    <p class="hint" style="margin-top:6px;">처음이시네요! 이름을 입력하면 바로 가족 구성원으로 등록돼요. 나중에 설정에서 더 추가할 수 있어요.</p>`
+              }
             </div>
 
             <div class="field-group">
@@ -282,6 +282,7 @@ function renderManualForm(onSaved, prefill = null) {
                 <option value="">선택 안 함</option>
                 ${libraries.map((l) => `<option value="${l.libCode}">${escapeHtml(l.libName)}</option>`).join("")}
               </select>
+              ${libraries.length === 0 ? `<p class="hint" style="margin-top:6px;">도서관을 등록해두면 대출 가능 여부도 함께 확인할 수 있어요. 지금은 건너뛰어도 괜찮아요.</p>` : ""}
             </div>
 
             <div class="field-group" id="date-fields">
@@ -298,13 +299,11 @@ function renderManualForm(onSaved, prefill = null) {
             </div>
 
             <button type="submit" class="btn btn-primary btn-block" id="submit-btn">대출 도장 찍기</button>
-          </form>`
-      }
+          </form>
     </div>
   `;
 
   overlayEl.querySelector("#add-close").addEventListener("click", closeOverlay);
-  if (members.length === 0) return;
 
   const form = overlayEl.querySelector("#book-form");
   const titleInput = overlayEl.querySelector("#title-input");
@@ -441,7 +440,18 @@ function renderManualForm(onSaved, prefill = null) {
     const title = titleInput.value.trim();
     if (!title) return;
 
-    const memberId = overlayEl.querySelector("#member-select").value;
+    let memberId;
+    if (members.length > 0) {
+      memberId = overlayEl.querySelector("#member-select").value;
+    } else {
+      const nameInput = overlayEl.querySelector("#member-name-input");
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+      memberId = addMember(name).id;
+    }
     const libCode = overlayEl.querySelector("#library-select").value;
     const library = libraries.find((l) => l.libCode === libCode);
 

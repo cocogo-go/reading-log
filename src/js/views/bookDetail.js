@@ -14,6 +14,7 @@ import {
 import { bookExist, usageAnalysisList, enrichKeywords, srchBooks, srchByIsbn } from "../api.js";
 import { enrichBookMetadata } from "../googleBooksApi.js";
 import { escapeHtml, statusLabel, renderCoverThumb, wireCoverFallbacks } from "./bookCard.js";
+import { navigateToTab } from "../app.js";
 
 const UNDERLINE_PROMPTS = [
   "아이가 어느 장면에서 웃었나요?",
@@ -385,7 +386,14 @@ async function loadAvailability(book) {
     return;
   }
   if (libraries.length === 0) {
-    slot.innerHTML = `<p class="hint" style="margin:0;">설정에서 나의 도서관을 등록하면 대출 가능 여부를 볼 수 있어요.</p>`;
+    slot.innerHTML = `
+      <p class="hint" style="margin:0 0 10px;">도서관을 등록하면 이 책을 지금 빌릴 수 있는지 바로 확인할 수 있어요.</p>
+      <button type="button" class="btn btn-secondary" id="goto-lib-settings">나의 도서관 등록하러 가기</button>
+    `;
+    slot.querySelector("#goto-lib-settings").addEventListener("click", () => {
+      closeDetail();
+      navigateToTab("settings");
+    });
     return;
   }
 
