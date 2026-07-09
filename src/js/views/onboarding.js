@@ -18,6 +18,17 @@ function markOnboarded() {
   }
 }
 
+function homeScreenHint() {
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod/i.test(ua)) {
+    return "사파리 하단(또는 상단)의 공유 버튼을 누르고 '홈 화면에 추가'를 선택해보세요.";
+  }
+  if (/Android/i.test(ua)) {
+    return "브라우저 오른쪽 위 메뉴(⋮)를 누르고 '홈 화면에 추가'를 선택해보세요.";
+  }
+  return "휴대폰 브라우저로 열면 홈 화면에 추가해서 앱처럼 쓸 수 있어요.";
+}
+
 const CARDS = [
   {
     emoji: "📖",
@@ -56,7 +67,13 @@ export function renderOnboarding(onDone) {
           <div class="onboarding-emoji">${c.emoji}</div>
           <h2 class="serif onboarding-title">${c.title.replace(/\n/g, "<br />")}</h2>
           <p class="onboarding-body">${c.body}</p>
-          ${c.cta ? `<button type="button" class="btn btn-primary btn-block" id="onb-cta" style="margin-top:24px;">첫 책 기록하기</button>` : ""}
+          ${
+            c.cta
+              ? `<button type="button" class="btn btn-primary btn-block" id="onb-cta" style="margin-top:24px;">첫 책 기록하기</button>
+                <button type="button" class="hint" id="onb-homescreen-toggle" style="text-decoration:underline; margin-top:18px; background:none;">📱 홈 화면에 추가하는 방법</button>
+                <p class="hint" id="onb-homescreen-hint" hidden style="margin-top:6px;">${homeScreenHint()}</p>`
+              : ""
+          }
         </div>
       `
       ).join("")}
@@ -87,5 +104,11 @@ export function renderOnboarding(onDone) {
   overlayEl.querySelector("#onb-cta").addEventListener("click", () => {
     finish();
     openAddFlow(onDone);
+  });
+
+  const hsToggle = overlayEl.querySelector("#onb-homescreen-toggle");
+  const hsHint = overlayEl.querySelector("#onb-homescreen-hint");
+  hsToggle?.addEventListener("click", () => {
+    hsHint.hidden = !hsHint.hidden;
   });
 }

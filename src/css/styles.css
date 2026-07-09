@@ -642,3 +642,43 @@ select.input:focus {
   border-radius: var(--radius-pill);
   transition: width 0.2s ease;
 }
+
+/* ---------- 인앱 브라우저 안내 배너 ---------- */
+
+.inapp-banner {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 16px;
+}
+
+.inapp-banner-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.inapp-banner-stamp {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 3px 9px;
+  margin-top: 1px;
+}
+
+.inapp-banner-text {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 2px 0 0;
+}
+
+.inapp-banner-close {
+  flex-shrink: 0;
+  font-size: 16px;
+  color: var(--muted);
+  padding: 2px 4px;
+}
+
+.inapp-banner-btn {
+  margin-top: 10px;
+}

@@ -4,6 +4,7 @@ import { renderShelfView } from "./views/shelf.js";
 import { renderUnderlineView } from "./views/underline.js";
 import { openAddFlow } from "./views/add.js";
 import { shouldShowOnboarding, renderOnboarding } from "./views/onboarding.js";
+import { renderInAppBanner } from "./inAppBrowser.js";
 
 const TABS = ["home", "shelf", "underline", "settings"];
 
@@ -39,6 +40,8 @@ function currentTab() {
 }
 
 function init() {
+  renderInAppBanner();
+
   document.querySelectorAll(".tab").forEach((btn) => {
     btn.addEventListener("click", () => showView(btn.dataset.tab));
   });
