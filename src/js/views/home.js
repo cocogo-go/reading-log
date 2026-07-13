@@ -5,16 +5,56 @@ import { CATEGORIES, computeCounts, buildDietComment } from "../kdc.js";
 import { openDietChart } from "./dietChart.js";
 import { openRecommend } from "./recommend.js";
 import { openInterestMap } from "./interestMap.js";
-import { thisMonthKey } from "../dateUtils.js";
+import { thisMonthKey, todayStr, addDays } from "../dateUtils.js";
+
+function renderBookListCard({ id, title, count, books, emptyText }) {
+  return `
+    <div class="card" style="margin-bottom:16px;">
+      <div id="${id}-toggle" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
+        <div>
+          <div class="hint" style="margin:0;">${title}</div>
+          <div class="serif" style="font-size:24px; margin-top:2px;">${count}권</div>
+        </div>
+        <span class="hint" id="${id}-toggle-label" style="margin:0;">${count === 0 ? "" : "더보기 ›"}</span>
+      </div>
+      <div id="${id}-list" hidden style="margin-top:14px;">
+        ${count === 0 ? `<p class="hint" style="margin:0;">${emptyText}</p>` : books.map((b) => renderBookCard(b)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function wireBookListCard(container, id, onChange) {
+  const list = container.querySelector(`#${id}-list`);
+  const toggle = container.querySelector(`#${id}-toggle`);
+  const label = container.querySelector(`#${id}-toggle-label`);
+  if (!toggle) return;
+  toggle.addEventListener("click", () => {
+    list.hidden = !list.hidden;
+    if (label.textContent) label.textContent = list.hidden ? "더보기 ›" : "접기 ‹";
+  });
+}
 
 export function renderHomeView(container) {
   const data = getData();
+  const today = todayStr();
+  const soonCutoff = addDays(today, 3);
+  const weekCutoff = addDays(today, 7);
+
   const borrowedBooks = data.books
     .filter((b) => {
       const s = getDisplayStatus(b);
       return s === "borrowed" || s === "overdue";
     })
     .sort((a, b) => (a.dueAt || "").localeCompare(b.dueAt || ""));
+
+  const dueTodayCount = borrowedBooks.filter((b) => b.dueAt === today).length;
+  const dueSoonCount = borrowedBooks.filter((b) => b.dueAt > today && b.dueAt <= soonCutoff).length;
+
+  const dueThisWeekBooks = borrowedBooks.filter((b) => b.dueAt && b.dueAt <= weekCutoff);
+  const willBorrowBooks = data.books
+    .filter((b) => getDisplayStatus(b) === "willBorrow")
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   const monthKey = thisMonthKey();
   const thisMonthBooks = data.books.filter((b) => (b.borrowedAt || "").startsWith(monthKey));
@@ -24,21 +64,41 @@ export function renderHomeView(container) {
   const dietComment = buildDietComment(dietCounts, dietTotal);
   const dietSegments = Object.entries(dietCounts).filter(([, c]) => c > 0);
 
+  const hasAnyBooks = data.books.length > 0;
+
   container.innerHTML = `
     <h2 class="screen-title serif">홈</h2>
 
     <div class="card" style="margin-bottom:16px;">
-      <div id="borrowed-toggle" style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
-        <div>
-          <div class="hint" style="margin:0;">대출중인 책</div>
-          <div class="serif" style="font-size:24px; margin-top:2px;">${borrowedBooks.length}권</div>
-        </div>
-        <span class="hint" id="borrowed-toggle-label" style="margin:0;">${borrowedBooks.length === 0 ? "" : "더보기 ›"}</span>
-      </div>
-      <div id="borrowed-list" hidden style="margin-top:14px;">
-        ${borrowedBooks.map((b) => renderBookCard(b)).join("")}
+      <div class="hint" style="margin:0;">오늘 우리 집 도서관 책</div>
+      <div class="serif" style="font-size:19px; margin-top:6px; line-height:1.6;">
+        대출중 ${borrowedBooks.length}권 · 오늘 반납 ${dueTodayCount}권 · 곧 반납 ${dueSoonCount}권
       </div>
     </div>
+
+    ${renderBookListCard({
+      id: "due-soon",
+      title: "오늘/이번 주 반납할 책",
+      count: dueThisWeekBooks.length,
+      books: dueThisWeekBooks,
+      emptyText: "이번 주 안에 반납할 책이 없어요.",
+    })}
+
+    ${renderBookListCard({
+      id: "borrowed",
+      title: "지금 대출중인 책",
+      count: borrowedBooks.length,
+      books: borrowedBooks,
+      emptyText: "지금 대출중인 책이 없어요.",
+    })}
+
+    ${renderBookListCard({
+      id: "will-borrow",
+      title: "다음에 빌릴 책",
+      count: willBorrowBooks.length,
+      books: willBorrowBooks,
+      emptyText: "다음에 빌릴 책을 담아보세요.",
+    })}
 
     <div class="card book-card" id="diet-preview" style="margin-bottom:16px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -71,16 +131,12 @@ export function renderHomeView(container) {
       </div>
     </div>
 
-    ${borrowedBooks.length === 0 ? `<div class="empty-state" style="margin-top:16px;">아직 도장이 하나도 없어요.<br />첫 번째 책을 기록해보세요.</div>` : ""}
+    ${!hasAnyBooks ? `<div class="empty-state" style="margin-top:16px;">아직 도장이 하나도 없어요.<br />첫 번째 책을 기록해보세요.</div>` : ""}
   `;
 
-  const borrowedList = container.querySelector("#borrowed-list");
-  if (borrowedBooks.length > 0) {
-    container.querySelector("#borrowed-toggle").addEventListener("click", () => {
-      borrowedList.hidden = !borrowedList.hidden;
-      container.querySelector("#borrowed-toggle-label").textContent = borrowedList.hidden ? "더보기 ›" : "접기 ‹";
-    });
-  }
+  wireBookListCard(container, "due-soon");
+  wireBookListCard(container, "borrowed");
+  wireBookListCard(container, "will-borrow");
 
   container.querySelectorAll("[data-book-id]").forEach((el) => {
     el.addEventListener("click", () => {
