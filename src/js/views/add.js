@@ -394,7 +394,14 @@ function renderManualForm(onSaved, prefill = null) {
       return;
     }
     try {
-      const results = await srchBooks(keyword);
+      const isbnDigits = keyword.replace(/[^\d]/g, "");
+      let results;
+      if (ISBN13_RE.test(isbnDigits)) {
+        const found = await srchByIsbn(isbnDigits);
+        results = found ? [found] : [];
+      } else {
+        results = await srchBooks(keyword);
+      }
       if (results.length === 0) {
         acList.hidden = true;
         acList.innerHTML = "";

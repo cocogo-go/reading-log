@@ -31,8 +31,12 @@ export const REGIONS = [
 // data4library.kr이 돌려주는 에러 메시지를 그대로 보여주면 사용자가 이해하기 어려워서
 // (한도 초과, 서버 점검 등) 상황에 맞는 안내 문구로 바꿔준다.
 function friendlyApiError(message) {
-  if (/트래픽|한도|초과|제한/.test(message || "")) {
+  const msg = message || "";
+  if (/트래픽|한도|초과|제한/.test(msg)) {
     return "오늘 도서관 정보 이용 한도를 넘었어요. 내일 다시 시도해주세요.";
+  }
+  if (/데이터 제공이 불가|도서관 코드를 확인/.test(msg)) {
+    return "이 지역/도서관은 정보나루에서 현재 데이터를 제공하지 않아요. 잠시 후 다시 확인하거나 다른 도서관으로 등록해보세요.";
   }
   return "도서관 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.";
 }

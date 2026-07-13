@@ -1,4 +1,4 @@
-const CACHE_NAME = "reading-log-v30";
+const CACHE_NAME = "reading-log-v31";
 const APP_SHELL = [
   "./",
   "./index.html",
