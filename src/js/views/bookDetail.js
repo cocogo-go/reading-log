@@ -5,6 +5,7 @@ import {
   markBorrowed,
   markReturned,
   reborrowBook,
+  revertToWillBorrow,
   removeBook,
   setBookRating,
   setBookMemo,
@@ -228,6 +229,7 @@ function render(bookId, onChange) {
     actionArea.innerHTML = `
       <button type="button" class="btn btn-primary btn-block" id="return-read">반납했어요 · 다 읽었어요</button>
       <button type="button" class="btn btn-secondary btn-block" id="return-unread">반납했어요 · 못 읽었어요</button>
+      <button type="button" class="hint" id="revert-willborrow" style="text-decoration:underline; background:none; align-self:center;">실수로 등록했어요 · 빌릴 책으로 되돌리기</button>
     `;
     actionArea.querySelector("#return-read").addEventListener("click", () => {
       pendingReturn = { bookId, read: true };
@@ -235,6 +237,12 @@ function render(bookId, onChange) {
     });
     actionArea.querySelector("#return-unread").addEventListener("click", () => {
       pendingReturn = { bookId, read: false };
+      render(bookId, onChange);
+    });
+    actionArea.querySelector("#revert-willborrow").addEventListener("click", () => {
+      if (!confirm("빌린 날짜와 반납 예정일을 지우고 '빌릴 책'으로 되돌릴까요?")) return;
+      revertToWillBorrow(bookId);
+      onChange?.();
       render(bookId, onChange);
     });
   } else if (status === "returned") {

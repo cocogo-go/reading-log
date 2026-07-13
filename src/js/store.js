@@ -255,6 +255,11 @@ export function markBorrowed(id) {
   updateBook(id, { status: "borrowed", borrowedAt, dueAt: addDays(borrowedAt, 14) });
 }
 
+// 대출중/지연으로 잘못 등록했을 때 → 빌릴 책으로 되돌리기 (빌린/반납 날짜 초기화)
+export function revertToWillBorrow(id) {
+  updateBook(id, { status: "willBorrow", borrowedAt: "", dueAt: "", returnedAt: "" });
+}
+
 // 대출중/지연 → 반납완료. read: true(다 읽었어요) | false(못 읽었어요)
 export function markReturned(id, read) {
   updateBook(id, { status: "returned", returnedAt: todayStr(), read });
