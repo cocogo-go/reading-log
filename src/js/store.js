@@ -249,10 +249,13 @@ export function setBookMemo(bookId, text) {
   });
 }
 
-// 빌릴 책 → 대출중으로 전환
-export function markBorrowed(id) {
+// 빌릴 책 → 대출중으로 전환. 담아둘 때와 다른 도서관에서 빌렸다면 libCode/libName으로 덮어쓴다.
+export function markBorrowed(id, { libCode, libName } = {}) {
   const borrowedAt = todayStr();
-  updateBook(id, { status: "borrowed", borrowedAt, dueAt: addDays(borrowedAt, 14) });
+  const patch = { status: "borrowed", borrowedAt, dueAt: addDays(borrowedAt, 14) };
+  if (libCode !== undefined) patch.libCode = libCode;
+  if (libName !== undefined) patch.libName = libName;
+  updateBook(id, patch);
 }
 
 // 대출중/지연으로 잘못 등록했을 때 → 빌릴 책으로 되돌리기 (빌린/반납 날짜 초기화)

@@ -30,6 +30,7 @@ function randomPrompt() {
 
 let overlayEl = null;
 let pendingReturn = null; // { bookId, read }
+let pendingBorrow = null; // { bookId }
 
 function memberName(memberId) {
   return getData().members.find((m) => m.id === memberId)?.name || "";
@@ -84,6 +85,11 @@ function render(bookId, onChange) {
 
   if (pendingReturn && pendingReturn.bookId === bookId) {
     renderReturnFlow(book, onChange);
+    return;
+  }
+
+  if (pendingBorrow && pendingBorrow.bookId === bookId) {
+    renderBorrowFlow(book, onChange);
     return;
   }
 
@@ -221,8 +227,7 @@ function render(bookId, onChange) {
   if (status === "willBorrow") {
     actionArea.innerHTML = `<button type="button" class="btn btn-primary btn-block" id="mark-borrowed">대출 도장 찍기</button>`;
     actionArea.querySelector("#mark-borrowed").addEventListener("click", () => {
-      markBorrowed(bookId);
-      onChange?.();
+      pendingBorrow = { bookId };
       render(bookId, onChange);
     });
   } else if (status === "borrowed" || status === "overdue") {
@@ -312,6 +317,52 @@ function renderReturnFlow(book, onChange) {
     finish();
   });
   overlayEl.querySelector("#return-skip").addEventListener("click", finish);
+}
+
+function renderBorrowFlow(book, onChange) {
+  const bookId = book.id;
+  const libraries = getData().libraries;
+
+  overlayEl.innerHTML = `
+    <div class="overlay-header">
+      <h2 class="serif" style="font-size:18px;">대출 도장 찍기</h2>
+      <button type="button" class="close-btn" id="detail-close">✕</button>
+    </div>
+    <div class="overlay-body">
+      <div class="card">
+        <div class="serif" style="font-size:17px; font-weight:700;">${escapeHtml(book.title)}</div>
+        <p class="hint" style="margin:10px 0 0;">담아둘 때와 다른 도서관에서 빌렸다면 여기서 바꿔주세요.</p>
+      </div>
+
+      <div class="field-group" style="margin-top:16px;">
+        <span class="field-label">어느 도서관에서 빌렸나요?</span>
+        <select class="input" id="borrow-lib-select">
+          <option value="">선택 안 함</option>
+          ${libraries.map((l) => `<option value="${l.libCode}" ${l.libCode === book.libCode ? "selected" : ""}>${escapeHtml(l.libName)}</option>`).join("")}
+        </select>
+      </div>
+
+      <button type="button" class="btn btn-primary btn-block" id="borrow-confirm">대출 도장 찍기</button>
+      <button type="button" class="btn btn-secondary btn-block" id="borrow-cancel" style="margin-top:10px;">취소</button>
+    </div>
+  `;
+
+  overlayEl.querySelector("#detail-close").addEventListener("click", closeDetail);
+
+  function cancel() {
+    pendingBorrow = null;
+    render(bookId, onChange);
+  }
+
+  overlayEl.querySelector("#borrow-confirm").addEventListener("click", () => {
+    const libCode = overlayEl.querySelector("#borrow-lib-select").value;
+    const library = libraries.find((l) => l.libCode === libCode);
+    pendingBorrow = null;
+    markBorrowed(bookId, { libCode, libName: library?.libName || "" });
+    onChange?.();
+    render(bookId, onChange);
+  });
+  overlayEl.querySelector("#borrow-cancel").addEventListener("click", cancel);
 }
 
 const ISBN13_RE = /^97[89]\d{10}$/;
