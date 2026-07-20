@@ -45,6 +45,18 @@ function debounce(fn, ms) {
   };
 }
 
+// 같은 책이 여러 판/쇄로 검색결과에 중복으로 잡히는 경우가 있어 ISBN13 기준으로 정리한다.
+// ISBN이 없는 항목은 서로 다른 책일 수 있으니 그대로 둔다.
+function dedupeByIsbn13(books) {
+  const seen = new Set();
+  return books.filter((b) => {
+    if (!b.isbn13) return true;
+    if (seen.has(b.isbn13)) return false;
+    seen.add(b.isbn13);
+    return true;
+  });
+}
+
 let overlayEl = null;
 let scanControls = null;
 
@@ -402,6 +414,7 @@ function renderManualForm(onSaved, prefill = null) {
       } else {
         results = await srchBooks(keyword);
       }
+      results = dedupeByIsbn13(results);
       if (results.length === 0) {
         acList.hidden = true;
         acList.innerHTML = "";
