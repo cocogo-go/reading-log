@@ -1,4 +1,4 @@
-const CACHE_NAME = "reading-log-v41";
+const CACHE_NAME = "reading-log-v42";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -12,6 +12,7 @@ const APP_SHELL = [
   "./src/js/googleBooksApi.js",
   "./src/js/kdcFallback.js",
   "./src/js/inAppBrowser.js",
+  "./src/js/updateBanner.js",
   "./src/js/views/settings.js",
   "./src/js/views/home.js",
   "./src/js/views/shelf.js",

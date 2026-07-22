@@ -5,6 +5,7 @@ import { renderUnderlineView } from "./views/underline.js";
 import { openAddFlow } from "./views/add.js";
 import { shouldShowOnboarding, renderOnboarding } from "./views/onboarding.js";
 import { renderInAppBanner } from "./inAppBrowser.js";
+import { watchForUpdates } from "./updateBanner.js";
 
 const TABS = ["home", "shelf", "underline", "settings"];
 
@@ -57,9 +58,12 @@ function init() {
   }
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./service-worker.js").catch((err) => {
-      console.warn("service worker 등록 실패", err);
-    });
+    navigator.serviceWorker
+      .register("./service-worker.js")
+      .then((reg) => watchForUpdates(reg))
+      .catch((err) => {
+        console.warn("service worker 등록 실패", err);
+      });
   }
 }
 
