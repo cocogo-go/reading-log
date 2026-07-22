@@ -1,6 +1,7 @@
 import { getData } from "../store.js";
 import { CATEGORIES, computeCounts, buildDietComment, classifyBook } from "../kdc.js";
-import { escapeHtml } from "./bookCard.js";
+import { escapeHtml, renderBookCard, wireCoverFallbacks } from "./bookCard.js";
+import { openBookDetail } from "./bookDetail.js";
 import { thisMonthKey } from "../dateUtils.js";
 import { reclassifyEtcBooks } from "../kdcFallback.js";
 
@@ -16,25 +17,30 @@ function filterBooks(books, memberFilter, period) {
   return result;
 }
 
-function renderBar(counts, total) {
+function renderBar(counts, total, selectedCategory) {
   if (total === 0) {
     return `<div class="empty-state" style="padding:24px 0;">이 기간엔 기록된 책이 없어요.</div>`;
   }
   const segments = Object.entries(counts).filter(([, c]) => c > 0);
   return `
     <div style="display:flex; height:28px; border-radius:8px; overflow:hidden; margin-bottom:16px;">
-      ${segments.map(([key, c]) => `<div style="width:${((c / total) * 100).toFixed(1)}%; background:${CATEGORIES[key].color};"></div>`).join("")}
+      ${segments
+        .map(
+          ([key, c]) =>
+            `<button type="button" data-category="${key}" title="${escapeHtml(CATEGORIES[key].label)} ${c}권" style="width:${((c / total) * 100).toFixed(1)}%; background:${CATEGORIES[key].color}; border:none; padding:0; cursor:pointer; opacity:${selectedCategory && selectedCategory !== key ? "0.45" : "1"};"></button>`
+        )
+        .join("")}
     </div>
-    <div style="display:flex; flex-direction:column; gap:10px;">
+    <div style="display:flex; flex-direction:column; gap:2px;">
       ${segments
         .sort((a, b) => b[1] - a[1])
         .map(
           ([key, c]) => `
-        <div style="display:flex; align-items:center; gap:8px; font-size:13px;">
+        <button type="button" data-category="${key}" style="display:flex; align-items:center; gap:8px; font-size:13px; background:${selectedCategory === key ? "var(--line)" : "none"}; border:none; padding:6px 4px; border-radius:6px; cursor:pointer; text-align:left; width:100%;">
           <span style="width:10px; height:10px; border-radius:50%; background:${CATEGORIES[key].color}; display:inline-block; flex-shrink:0;"></span>
-          <span style="flex:1;">${CATEGORIES[key].label}</span>
-          <span style="color:var(--muted);">${c}권</span>
-        </div>
+          <span style="flex:1; color:var(--ink);">${CATEGORIES[key].label}</span>
+          <span style="color:var(--muted);">${c}권 ›</span>
+        </button>
       `
         )
         .join("")}
@@ -50,6 +56,7 @@ export function openDietChart() {
 
   let memberFilter = "all";
   let period = "month";
+  let selectedCategory = null;
 
   function paint() {
     const data = getData();
@@ -59,6 +66,9 @@ export function openDietChart() {
     const comment = buildDietComment(counts, total);
     // 기간/구성원 필터와 상관없이, 저장된 책 전체에서 재분류 대상(기타 + 직접 지정 안 함)을 센다.
     const etcTargetCount = data.books.filter((b) => b.isbn13 && !b.manualCategory && classifyBook(b) === "etc").length;
+    // 선택한 카테고리가 이번 필터에서 사라졌으면(예: 구성원/기간을 바꿔서 0권이 됨) 선택을 푼다.
+    if (selectedCategory && !counts[selectedCategory]) selectedCategory = null;
+    const selectedBooks = selectedCategory ? books.filter((b) => classifyBook(b) === selectedCategory) : [];
 
     overlayEl.innerHTML = `
       <div class="overlay-header">
@@ -81,7 +91,20 @@ export function openDietChart() {
           <button type="button" class="filter-chip ${period === "all" ? "active" : ""}" data-period="all">전체 기간</button>
         </div>
         ${comment ? `<div class="card" style="margin-bottom:16px;"><p class="serif" style="font-size:16px; margin:0;">${escapeHtml(comment)}</p></div>` : ""}
-        ${renderBar(counts, total)}
+        ${renderBar(counts, total, selectedCategory)}
+        ${
+          selectedCategory
+            ? `<div class="card" style="margin-top:4px; margin-bottom:16px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                  <span class="serif" style="font-size:15px;">${escapeHtml(CATEGORIES[selectedCategory].label)} · ${selectedBooks.length}권</span>
+                  <button type="button" id="category-list-close" class="hint" style="background:none; text-decoration:underline;">닫기</button>
+                </div>
+                <div id="category-book-list" style="display:flex; flex-direction:column; gap:10px;">
+                  ${selectedBooks.map((b) => renderBookCard(b)).join("")}
+                </div>
+              </div>`
+            : ""
+        }
         ${
           etcTargetCount > 0
             ? `<div class="card" style="margin-top:16px;">
@@ -129,6 +152,28 @@ export function openDietChart() {
         paint();
       });
     });
+    overlayEl.querySelectorAll("[data-category]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        selectedCategory = selectedCategory === btn.dataset.category ? null : btn.dataset.category;
+        paint();
+      });
+    });
+    const categoryListCloseBtn = overlayEl.querySelector("#category-list-close");
+    if (categoryListCloseBtn) {
+      categoryListCloseBtn.addEventListener("click", () => {
+        selectedCategory = null;
+        paint();
+      });
+    }
+    const categoryBookList = overlayEl.querySelector("#category-book-list");
+    if (categoryBookList) {
+      categoryBookList.querySelectorAll("[data-book-id]").forEach((el) => {
+        el.addEventListener("click", () => {
+          openBookDetail(el.dataset.bookId, paint);
+        });
+      });
+      wireCoverFallbacks(categoryBookList);
+    }
   }
 
   paint();
