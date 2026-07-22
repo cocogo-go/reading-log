@@ -10,13 +10,15 @@ function isLiterature(categories) {
 }
 
 // 등록 직후 백그라운드로 호출한다. 이미 갖고 있는 정보는 건드리지 않고, 없는 것만 채운다.
+// 국중 API 폴백(kdcFallback.js)이 이 조회가 끝난 뒤 이어서 실행되도록 항상 Promise를 반환한다.
 export function enrichBookMetadata(book) {
-  if (!book.isbn13) return;
-  const needsForeignCategory = !book.kdc && !book.foreignCategory;
+  if (!book.isbn13) return Promise.resolve();
+  // 사용자가 식단표 분류를 직접 지정했으면(manualCategory) 그 값이 최우선이니 재조회로 건드리지 않는다.
+  const needsForeignCategory = !book.kdc && !book.foreignCategory && !book.manualCategory;
   const needsCover = !book.coverUrl;
-  if (!needsForeignCategory && !needsCover) return;
+  if (!needsForeignCategory && !needsCover) return Promise.resolve();
 
-  fetch(`${BASE_URL}?q=isbn:${book.isbn13}`)
+  return fetch(`${BASE_URL}?q=isbn:${book.isbn13}`)
     .then((res) => (res.ok ? res.json() : null))
     .then((json) => {
       const info = json?.items?.[0]?.volumeInfo;

@@ -1,7 +1,8 @@
 import { getData } from "../store.js";
-import { CATEGORIES, computeCounts, buildDietComment } from "../kdc.js";
+import { CATEGORIES, computeCounts, buildDietComment, classifyBook } from "../kdc.js";
 import { escapeHtml } from "./bookCard.js";
 import { thisMonthKey } from "../dateUtils.js";
+import { reclassifyEtcBooks } from "../kdcFallback.js";
 
 let overlayEl = null;
 
@@ -56,6 +57,8 @@ export function openDietChart() {
     const counts = computeCounts(books);
     const total = books.length;
     const comment = buildDietComment(counts, total);
+    // 기간/구성원 필터와 상관없이, 저장된 책 전체에서 재분류 대상(기타 + 직접 지정 안 함)을 센다.
+    const etcTargetCount = data.books.filter((b) => b.isbn13 && !b.manualCategory && classifyBook(b) === "etc").length;
 
     overlayEl.innerHTML = `
       <div class="overlay-header">
@@ -79,10 +82,41 @@ export function openDietChart() {
         </div>
         ${comment ? `<div class="card" style="margin-bottom:16px;"><p class="serif" style="font-size:16px; margin:0;">${escapeHtml(comment)}</p></div>` : ""}
         ${renderBar(counts, total)}
+        ${
+          etcTargetCount > 0
+            ? `<div class="card" style="margin-top:16px;">
+                <p class="hint" style="margin:0 0 10px;">'기타'로 분류된 책이 ${etcTargetCount}권 있어요. 국립중앙도서관 등에서 분류 정보를 다시 확인해볼까요?</p>
+                <button type="button" class="btn btn-secondary btn-block" id="reclassify-btn">분류 다시 불러오기</button>
+                <p class="hint" id="reclassify-status" style="margin:8px 0 0;"></p>
+              </div>`
+            : ""
+        }
       </div>
     `;
 
     overlayEl.querySelector("#diet-close").addEventListener("click", closeDietChart);
+
+    const reclassifyBtn = overlayEl.querySelector("#reclassify-btn");
+    if (reclassifyBtn) {
+      reclassifyBtn.addEventListener("click", async () => {
+        const statusEl = overlayEl.querySelector("#reclassify-status");
+        reclassifyBtn.disabled = true;
+        statusEl.textContent = "다시 확인하는 중이에요...";
+        const beforeIds = data.books.filter((b) => b.isbn13 && !b.manualCategory && classifyBook(b) === "etc").map((b) => b.id);
+        await reclassifyEtcBooks();
+        if (!overlayEl) return; // 그 사이 화면을 닫았으면 여기서 끝낸다
+        const fresh = getData();
+        const changed = beforeIds.filter((id) => {
+          const b = fresh.books.find((x) => x.id === id);
+          return b && classifyBook(b) !== "etc";
+        }).length;
+        // 결과 메시지를 먼저 보여주고(다 고쳐져서 이 카드 자체가 사라질 수도 있으니), 잠시 후 화면을 새로 그린다.
+        statusEl.textContent = `${beforeIds.length}권 중 ${changed}권 다시 분류했어요.`;
+        setTimeout(() => {
+          if (overlayEl) paint();
+        }, 1500);
+      });
+    }
     overlayEl.querySelectorAll("[data-member]").forEach((btn) => {
       btn.addEventListener("click", () => {
         memberFilter = btn.dataset.member;

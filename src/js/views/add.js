@@ -2,6 +2,7 @@ import { getData, addBook, addMember, borrowCount } from "../store.js";
 import { srchBooks, srchByIsbn, enrichKeywords } from "../api.js";
 import { escapeHtml } from "./bookCard.js";
 import { enrichBookMetadata } from "../googleBooksApi.js";
+import { enrichKdcFallback } from "../kdcFallback.js";
 import { todayStr, addDays } from "../dateUtils.js";
 
 const ZXING_CDN_URL = "https://esm.sh/@zxing/browser@0.1.5";
@@ -492,7 +493,7 @@ function renderManualForm(onSaved, prefill = null) {
 
     closeOverlay();
     onSaved?.(book);
-    enrichBookMetadata(book);
+    enrichBookMetadata(book).then(() => enrichKdcFallback(book.id));
     enrichKeywords(book.isbn13);
   });
 }

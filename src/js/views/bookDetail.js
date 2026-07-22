@@ -9,11 +9,13 @@ import {
   removeBook,
   setBookRating,
   setBookMemo,
+  setManualCategory,
   updateBook,
   addBook,
 } from "../store.js";
 import { bookExist, usageAnalysisList, enrichKeywords, srchBooks, srchByIsbn } from "../api.js";
 import { enrichBookMetadata } from "../googleBooksApi.js";
+import { CATEGORIES, classifyBook } from "../kdc.js";
 import { escapeHtml, statusLabel, renderCoverThumb, wireCoverFallbacks } from "./bookCard.js";
 import { navigateToTab } from "../app.js";
 
@@ -124,18 +126,27 @@ function render(bookId, onChange) {
           ${book.read !== null && book.status === "returned" ? `<div>완독 · ${book.read ? "다 읽었어요" : "못 읽었어요"}</div>` : ""}
         </div>
 
-        ${
-          !book.kdc
-            ? `<div style="margin-top:14px;">
-                <p class="hint" style="margin:0 0 8px;">정보나루에 분류 정보가 없는 책이에요(영어원서 등). 식단표에 반영하려면 분류를 선택해주세요.</p>
-                <span class="filter-row" style="display:inline-flex; margin:0;">
-                  <button type="button" class="filter-chip ${book.foreignCategory === "literature" ? "active" : ""}" id="fc-lit">문학</button>
-                  <button type="button" class="filter-chip ${book.foreignCategory === "nonfiction" ? "active" : ""}" id="fc-nonfic">비문학</button>
-                  <button type="button" class="filter-chip ${book.foreignCategory === "general" ? "active" : ""}" id="fc-general">일반</button>
-                </span>
-              </div>`
-            : ""
-        }
+        ${(() => {
+          const autoKey = classifyBook({ ...book, manualCategory: null });
+          const categoryOptions = Object.keys(CATEGORIES)
+            .filter((k) => k !== "etc")
+            .concat("etc");
+          return `
+            <div style="margin-top:14px;">
+              <span class="field-label" style="margin-bottom:6px; display:block;">식단표 분류</span>
+              <select class="input" id="manual-category-select">
+                <option value="">자동 분류 (지금은 ${escapeHtml(CATEGORIES[autoKey].label)})</option>
+                ${categoryOptions
+                  .map(
+                    (key) =>
+                      `<option value="${key}" ${book.manualCategory === key ? "selected" : ""}>${escapeHtml(CATEGORIES[key].label)}</option>`
+                  )
+                  .join("")}
+              </select>
+              <p class="hint" style="margin-top:6px;">${book.manualCategory ? "직접 지정한 분류예요. 자동 조회가 이 값을 덮어쓰지 않아요." : "자동으로 분류돼요. 다르면 여기서 직접 골라주세요."}</p>
+            </div>
+          `;
+        })()}
       </div>
 
       ${
@@ -193,23 +204,11 @@ function render(bookId, onChange) {
     wireLinkSearch(book, onChange);
   }
 
-  if (!book.kdc) {
-    overlayEl.querySelector("#fc-lit").addEventListener("click", () => {
-      updateBook(bookId, { foreignCategory: "literature" });
-      onChange?.();
-      render(bookId, onChange);
-    });
-    overlayEl.querySelector("#fc-nonfic").addEventListener("click", () => {
-      updateBook(bookId, { foreignCategory: "nonfiction" });
-      onChange?.();
-      render(bookId, onChange);
-    });
-    overlayEl.querySelector("#fc-general").addEventListener("click", () => {
-      updateBook(bookId, { foreignCategory: "general" });
-      onChange?.();
-      render(bookId, onChange);
-    });
-  }
+  overlayEl.querySelector("#manual-category-select").addEventListener("change", (e) => {
+    setManualCategory(bookId, e.target.value);
+    onChange?.();
+    render(bookId, onChange);
+  });
 
   if (status === "willBorrow") {
     loadAvailability(book);

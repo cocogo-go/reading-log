@@ -178,6 +178,7 @@ export function addBook(input) {
     read: null,
     memo: input.memo || "",
     foreignCategory: input.foreignCategory || null, // "literature" | "nonfiction" | "general" (영어원서, KDC 없을 때만)
+    manualCategory: null, // 사용자가 식단표 카테고리를 직접 지정했을 때(kdc.js CATEGORIES 키). 있으면 그 무엇보다 최우선하고 자동 재조회로도 덮어쓰지 않는다.
     coverUrl: input.coverUrl || "", // 정보나루 bookImageURL, 없으면 구글 북스로 나중에 보강
     createdAt: Date.now(),
   };
@@ -217,6 +218,11 @@ export function removeBook(id) {
 
 export function setBookRating(id, rating) {
   updateBook(id, { rating });
+}
+
+// 식단표 카테고리를 사용자가 직접 지정한다. key가 없으면(빈 값) 지정을 해제해 자동 분류로 되돌아간다.
+export function setManualCategory(id, key) {
+  updateBook(id, { manualCategory: key || null });
 }
 
 export function getUnderlineForBook(bookId) {

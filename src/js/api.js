@@ -171,4 +171,37 @@ export async function usageAnalysisList(isbn13) {
   }));
 }
 
+// 응답 구조를 정확히 모를 때를 대비해, 객체를 얕은 깊이까지 재귀로 뒤져 첫 번째 값을 찾는다.
+function findField(obj, fieldName, depth = 0) {
+  if (!obj || typeof obj !== "object" || depth > 4) return "";
+  if (typeof obj[fieldName] === "string" && obj[fieldName].trim()) return obj[fieldName].trim();
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === "object") {
+      const found = findField(value, fieldName, depth + 1);
+      if (found) return found;
+    }
+  }
+  return "";
+}
+
+// 국립중앙도서관 서지정보(SEOJI)로 KDC를 보완 조회한다. 정보나루에 KDC가 없을 때만 쓰는 폴백이라,
+// 실패하거나 못 찾아도 조용히 빈 문자열을 돌려준다 (등록 흐름을 막지 않는다).
+export async function srchNlSeoji(isbn13) {
+  let res;
+  try {
+    res = await fetch(`${PROXY_BASE_URL}/api/nl-seoji?isbn=${encodeURIComponent(isbn13)}`);
+  } catch {
+    return "";
+  }
+  if (!res.ok) return "";
+  let json;
+  try {
+    json = await res.json();
+  } catch {
+    return "";
+  }
+  if (json?.RESULT === "ERROR") return "";
+  return findField(json, "KDC");
+}
+
 export { callApi };

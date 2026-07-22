@@ -14,8 +14,9 @@ export const CATEGORIES = {
   etc: { label: "기타", color: "#C9C4B4" },
 };
 
-// 정보나루 KDC보다 영어원서 분류(foreignCategory)를 우선한다.
+// 사용자가 직접 지정한 분류(manualCategory) > 영어원서 분류(foreignCategory) > 정보나루 KDC 순으로 우선한다.
 export function classifyBook(book) {
+  if (book.manualCategory && CATEGORIES[book.manualCategory]) return book.manualCategory;
   if (book.foreignCategory === "literature") return "en_lit";
   if (book.foreignCategory === "nonfiction") return "en_nonfic";
   if (book.foreignCategory === "general") return "en_general";
