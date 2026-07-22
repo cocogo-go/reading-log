@@ -483,7 +483,7 @@ async function loadAvailability(book) {
           </div>
         `;
       })
-      .join("");
+      .join("") + `<p class="hint" style="margin:10px 0 0;">대출가능/대출중 표시는 전날 기준이라 오늘 상황과 다를 수 있어요. 확실히 하려면 청구기호 확인으로 도서관 사이트를 열어보세요.</p>`;
     slot.querySelectorAll("[data-callno]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const { lib } = results[Number(btn.dataset.callno)];
