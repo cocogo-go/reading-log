@@ -108,9 +108,10 @@ export function openDietChart() {
         ${
           etcTargetCount > 0
             ? `<div class="card" style="margin-top:16px;">
-                <p class="hint" style="margin:0 0 10px;">'기타'로 분류된 책이 ${etcTargetCount}권 있어요. 국립중앙도서관 등에서 분류 정보를 다시 확인해볼까요?</p>
+                <p class="hint" style="margin:0 0 10px;">지금 보는 기간·구성원과 상관없이, 등록된 책 전체 중 '기타'로 분류된 책이 ${etcTargetCount}권 있어요. 국립중앙도서관 등에서 분류 정보를 다시 확인해볼까요?</p>
                 <button type="button" class="btn btn-secondary btn-block" id="reclassify-btn">분류 다시 불러오기</button>
                 <p class="hint" id="reclassify-status" style="margin:8px 0 0;"></p>
+                <p class="hint" style="margin:8px 0 0;">그래도 남는 책은 어디서도 분류 정보를 못 찾은 경우예요. 위에서 '기타'를 눌러 목록을 보고, 책을 눌러 상세화면의 '식단표 분류'에서 직접 골라주면 확실하게 고정돼요.</p>
               </div>`
             : ""
         }
