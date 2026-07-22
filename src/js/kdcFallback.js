@@ -17,11 +17,15 @@ function looksLikeEnglishTitle(title) {
 export async function enrichKdcFallback(bookId) {
   const book = getBook(bookId);
   if (!book || !book.isbn13 || book.manualCategory || book.kdc) return;
+  // 구글 북스가 이미 문학/비문학까지 확정했으면(classifyBook에서 foreignCategory가 kdc보다 우선이라)
+  // 국중 조회 결과가 분류에 반영될 일이 없으니 건너뛴다. "general"(그냥 영어원서)만 남은 경우는
+  // 국중에 KDC가 있을 수 있으니 그대로 시도한다.
+  if (book.foreignCategory === "literature" || book.foreignCategory === "nonfiction") return;
 
   try {
     const kdc = await srchNlSeoji(book.isbn13);
     const fresh = getBook(bookId);
-    if (!fresh || fresh.manualCategory || fresh.kdc) return; // 그 사이 사용자가 직접 지정했거나 다른 경로로 채워졌으면 존중
+    if (!fresh || fresh.manualCategory || fresh.kdc || fresh.foreignCategory === "literature" || fresh.foreignCategory === "nonfiction") return; // 그 사이 사용자가 직접 지정했거나 다른 경로로 채워졌으면 존중
     if (kdc) {
       updateBook(bookId, { kdc });
       return;
