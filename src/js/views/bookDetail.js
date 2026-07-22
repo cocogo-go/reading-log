@@ -125,12 +125,13 @@ function render(bookId, onChange) {
         </div>
 
         ${
-          book.foreignCategory
+          !book.kdc
             ? `<div style="margin-top:14px;">
-                <span class="hint" style="margin-right:8px;">분류</span>
+                <p class="hint" style="margin:0 0 8px;">정보나루에 분류 정보가 없는 책이에요(영어원서 등). 식단표에 반영하려면 분류를 선택해주세요.</p>
                 <span class="filter-row" style="display:inline-flex; margin:0;">
                   <button type="button" class="filter-chip ${book.foreignCategory === "literature" ? "active" : ""}" id="fc-lit">문학</button>
                   <button type="button" class="filter-chip ${book.foreignCategory === "nonfiction" ? "active" : ""}" id="fc-nonfic">비문학</button>
+                  <button type="button" class="filter-chip ${book.foreignCategory === "general" ? "active" : ""}" id="fc-general">일반</button>
                 </span>
               </div>`
             : ""
@@ -192,7 +193,7 @@ function render(bookId, onChange) {
     wireLinkSearch(book, onChange);
   }
 
-  if (book.foreignCategory) {
+  if (!book.kdc) {
     overlayEl.querySelector("#fc-lit").addEventListener("click", () => {
       updateBook(bookId, { foreignCategory: "literature" });
       onChange?.();
@@ -200,6 +201,11 @@ function render(bookId, onChange) {
     });
     overlayEl.querySelector("#fc-nonfic").addEventListener("click", () => {
       updateBook(bookId, { foreignCategory: "nonfiction" });
+      onChange?.();
+      render(bookId, onChange);
+    });
+    overlayEl.querySelector("#fc-general").addEventListener("click", () => {
+      updateBook(bookId, { foreignCategory: "general" });
       onChange?.();
       render(bookId, onChange);
     });
