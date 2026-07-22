@@ -722,6 +722,39 @@ select.input:focus {
   padding: 2px 4px;
 }
 
+/* ---------- 반납 예정 알림 배너 ---------- */
+
+.due-reminder-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border-bottom: 2px solid var(--out);
+  padding: calc(10px + var(--safe-top)) 12px 10px 16px;
+  cursor: pointer;
+}
+
+.due-reminder-stamp {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 3px 9px;
+}
+
+.due-reminder-text {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+
+.due-reminder-close {
+  flex-shrink: 0;
+  font-size: 16px;
+  color: var(--muted);
+  padding: 2px 4px;
+}
+
 /* ---------- 자주 묻는 질문 (아코디언) ---------- */
 
 .faq-list {

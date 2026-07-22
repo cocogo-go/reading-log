@@ -6,6 +6,7 @@ import { openAddFlow } from "./views/add.js";
 import { shouldShowOnboarding, renderOnboarding } from "./views/onboarding.js";
 import { renderInAppBanner } from "./inAppBrowser.js";
 import { watchForUpdates } from "./updateBanner.js";
+import { renderDueReminder } from "./dueReminder.js";
 
 const TABS = ["home", "shelf", "underline", "settings"];
 
@@ -55,6 +56,8 @@ function init() {
 
   if (shouldShowOnboarding()) {
     renderOnboarding(() => showView(currentTab()));
+  } else {
+    renderDueReminder(() => showView("home"));
   }
 
   if ("serviceWorker" in navigator) {

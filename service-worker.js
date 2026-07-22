@@ -1,4 +1,4 @@
-const CACHE_NAME = "reading-log-v42";
+const CACHE_NAME = "reading-log-v43";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -13,6 +13,7 @@ const APP_SHELL = [
   "./src/js/kdcFallback.js",
   "./src/js/inAppBrowser.js",
   "./src/js/updateBanner.js",
+  "./src/js/dueReminder.js",
   "./src/js/views/settings.js",
   "./src/js/views/home.js",
   "./src/js/views/shelf.js",
