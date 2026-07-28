@@ -284,7 +284,19 @@ function render(bookId, onChange) {
 // 입력은 상세 화면에 항상 떠 있는 '별점 · 밑줄' 카드 하나로 충분하다.
 function renderReturnConfirm(book, onChange) {
   const bookId = book.id;
-  const hasContent = book.rating > 0 || !!(book.memo && book.memo.trim());
+  const hasRating = book.rating > 0;
+  const hasMemo = !!(book.memo && book.memo.trim());
+  const bothDone = hasRating && hasMemo;
+
+  let missingLabel = "별점 · 밑줄 남기러 가기";
+  let missingPrompt = "별점과 밑줄을 남겨볼까요?";
+  if (hasRating && !hasMemo) {
+    missingLabel = "밑줄 남기러 가기";
+    missingPrompt = "밑줄도 남겨볼까요?";
+  } else if (!hasRating && hasMemo) {
+    missingLabel = "별점 남기러 가기";
+    missingPrompt = "별점도 남겨볼까요?";
+  }
 
   overlayEl.innerHTML = `
     <div class="overlay-header">
@@ -294,16 +306,14 @@ function renderReturnConfirm(book, onChange) {
     <div class="overlay-body">
       <div class="card">
         <div class="serif" style="font-size:17px; font-weight:700;">${escapeHtml(book.title)}</div>
+        ${hasRating ? `<div style="margin-top:12px; font-size:20px; color:var(--star);">${"★".repeat(book.rating)}${"☆".repeat(5 - book.rating)}</div>` : ""}
+        ${hasMemo ? `<p class="hint" style="margin-top:${hasRating ? "8px" : "12px"}; color:var(--ink);">${escapeHtml(book.memo)}</p>` : ""}
         ${
-          hasContent
-            ? `
-              ${book.rating > 0 ? `<div style="margin-top:12px; font-size:20px; color:var(--star);">${"★".repeat(book.rating)}${"☆".repeat(5 - book.rating)}</div>` : ""}
-              ${book.memo ? `<p class="hint" style="margin-top:${book.rating > 0 ? "8px" : "12px"}; color:var(--ink);">${escapeHtml(book.memo)}</p>` : ""}
-              <button type="button" class="btn btn-primary btn-block" id="return-confirm-ok" style="margin-top:16px;">확인</button>
-            `
+          bothDone
+            ? `<button type="button" class="btn btn-primary btn-block" id="return-confirm-ok" style="margin-top:16px;">확인</button>`
             : `
-              <p class="hint" style="margin-top:10px;">별점과 밑줄을 남겨볼까요?</p>
-              <button type="button" class="btn btn-primary btn-block" id="return-goto-rating" style="margin-top:12px;">별점 · 밑줄 남기러 가기</button>
+              <p class="hint" style="margin-top:${hasRating || hasMemo ? "12px" : "10px"};">${missingPrompt}</p>
+              <button type="button" class="btn btn-primary btn-block" id="return-goto-rating" style="margin-top:12px;">${missingLabel}</button>
               <button type="button" class="btn btn-secondary btn-block" id="return-later" style="margin-top:10px;">다음에 적기</button>
             `
         }
