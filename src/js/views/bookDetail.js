@@ -32,6 +32,7 @@ function randomPrompt() {
 
 let overlayEl = null;
 let pendingBorrow = null; // { bookId }
+let returnConfirmBookId = null; // 반납 직후 요약 화면을 보여줄 책 id
 
 function memberName(memberId) {
   return getData().members.find((m) => m.id === memberId)?.name || "";
@@ -39,6 +40,7 @@ function memberName(memberId) {
 
 export function openBookDetail(bookId, onChange) {
   closeDetail();
+  returnConfirmBookId = null;
   overlayEl = document.createElement("div");
   overlayEl.className = "overlay";
   document.body.appendChild(overlayEl);
@@ -80,6 +82,11 @@ function render(bookId, onChange) {
   const book = getBook(bookId);
   if (!book) {
     closeDetail();
+    return;
+  }
+
+  if (returnConfirmBookId === bookId) {
+    renderReturnConfirm(book, onChange);
     return;
   }
 
@@ -234,16 +241,18 @@ function render(bookId, onChange) {
       <button type="button" class="btn btn-secondary btn-block" id="return-unread">반납했어요 · 못 읽었어요</button>
       <button type="button" class="hint" id="revert-willborrow" style="text-decoration:underline; background:none; align-self:center;">실수로 등록했어요 · 빌릴 책으로 되돌리기</button>
     `;
-    actionArea.querySelector("#return-read").addEventListener("click", () => {
-      markReturned(bookId, true);
+    function saveAndReturn(read) {
+      // '저장하기'를 따로 안 눌렀어도, 별점·밑줄 카드에 입력해둔 값이 있으면 반납과 함께 저장한다.
+      if (editRating) setBookRating(bookId, editRating);
+      const memoValue = overlayEl.querySelector("#edit-memo-input").value;
+      if (memoValue.trim()) setBookMemo(bookId, memoValue);
+      markReturned(bookId, read);
+      returnConfirmBookId = bookId;
       onChange?.();
       render(bookId, onChange);
-    });
-    actionArea.querySelector("#return-unread").addEventListener("click", () => {
-      markReturned(bookId, false);
-      onChange?.();
-      render(bookId, onChange);
-    });
+    }
+    actionArea.querySelector("#return-read").addEventListener("click", () => saveAndReturn(true));
+    actionArea.querySelector("#return-unread").addEventListener("click", () => saveAndReturn(false));
     actionArea.querySelector("#revert-willborrow").addEventListener("click", () => {
       if (!confirm("빌린 날짜와 반납 예정일을 지우고 '빌릴 책'으로 되돌릴까요?")) return;
       revertToWillBorrow(bookId);
@@ -267,6 +276,55 @@ function render(bookId, onChange) {
       onChange?.();
       closeDetail();
     }
+  });
+}
+
+// 반납 직후 한 번만 보여주는 요약 화면. 이미 저장된 별점·밑줄이 있으면 그대로 보여주고,
+// 없으면 지금 남길지 다음에 남길지 고르게 한다. 입력창을 새로 만들지 않는다 —
+// 입력은 상세 화면에 항상 떠 있는 '별점 · 밑줄' 카드 하나로 충분하다.
+function renderReturnConfirm(book, onChange) {
+  const bookId = book.id;
+  const hasContent = book.rating > 0 || !!(book.memo && book.memo.trim());
+
+  overlayEl.innerHTML = `
+    <div class="overlay-header">
+      <h2 class="serif" style="font-size:18px;">반납했어요</h2>
+      <button type="button" class="close-btn" id="detail-close">✕</button>
+    </div>
+    <div class="overlay-body">
+      <div class="card">
+        <div class="serif" style="font-size:17px; font-weight:700;">${escapeHtml(book.title)}</div>
+        ${
+          hasContent
+            ? `
+              ${book.rating > 0 ? `<div style="margin-top:12px; font-size:20px; color:var(--star);">${"★".repeat(book.rating)}${"☆".repeat(5 - book.rating)}</div>` : ""}
+              ${book.memo ? `<p class="hint" style="margin-top:${book.rating > 0 ? "8px" : "12px"}; color:var(--ink);">${escapeHtml(book.memo)}</p>` : ""}
+              <button type="button" class="btn btn-primary btn-block" id="return-confirm-ok" style="margin-top:16px;">확인</button>
+            `
+            : `
+              <p class="hint" style="margin-top:10px;">별점과 밑줄을 남겨볼까요?</p>
+              <button type="button" class="btn btn-primary btn-block" id="return-goto-rating" style="margin-top:12px;">별점 · 밑줄 남기러 가기</button>
+              <button type="button" class="btn btn-secondary btn-block" id="return-later" style="margin-top:10px;">다음에 적기</button>
+            `
+        }
+      </div>
+    </div>
+  `;
+
+  overlayEl.querySelector("#detail-close").addEventListener("click", closeDetail);
+
+  overlayEl.querySelector("#return-confirm-ok")?.addEventListener("click", () => {
+    returnConfirmBookId = null;
+    closeDetail();
+  });
+  overlayEl.querySelector("#return-goto-rating")?.addEventListener("click", () => {
+    returnConfirmBookId = null;
+    render(bookId, onChange);
+  });
+  overlayEl.querySelector("#return-later")?.addEventListener("click", () => {
+    returnConfirmBookId = null;
+    closeDetail();
+    navigateToTab("home");
   });
 }
 
