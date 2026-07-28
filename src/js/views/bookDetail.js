@@ -31,7 +31,6 @@ function randomPrompt() {
 }
 
 let overlayEl = null;
-let pendingReturn = null; // { bookId, read }
 let pendingBorrow = null; // { bookId }
 
 function memberName(memberId) {
@@ -40,7 +39,6 @@ function memberName(memberId) {
 
 export function openBookDetail(bookId, onChange) {
   closeDetail();
-  pendingReturn = null;
   overlayEl = document.createElement("div");
   overlayEl.className = "overlay";
   document.body.appendChild(overlayEl);
@@ -82,11 +80,6 @@ function render(bookId, onChange) {
   const book = getBook(bookId);
   if (!book) {
     closeDetail();
-    return;
-  }
-
-  if (pendingReturn && pendingReturn.bookId === bookId) {
-    renderReturnFlow(book, onChange);
     return;
   }
 
@@ -242,11 +235,13 @@ function render(bookId, onChange) {
       <button type="button" class="hint" id="revert-willborrow" style="text-decoration:underline; background:none; align-self:center;">실수로 등록했어요 · 빌릴 책으로 되돌리기</button>
     `;
     actionArea.querySelector("#return-read").addEventListener("click", () => {
-      pendingReturn = { bookId, read: true };
+      markReturned(bookId, true);
+      onChange?.();
       render(bookId, onChange);
     });
     actionArea.querySelector("#return-unread").addEventListener("click", () => {
-      pendingReturn = { bookId, read: false };
+      markReturned(bookId, false);
+      onChange?.();
       render(bookId, onChange);
     });
     actionArea.querySelector("#revert-willborrow").addEventListener("click", () => {
@@ -273,55 +268,6 @@ function render(bookId, onChange) {
       closeDetail();
     }
   });
-}
-
-function renderReturnFlow(book, onChange) {
-  const bookId = book.id;
-  overlayEl.innerHTML = `
-    <div class="overlay-header">
-      <h2 class="serif" style="font-size:18px;">반납했어요</h2>
-      <button type="button" class="close-btn" id="detail-close">✕</button>
-    </div>
-    <div class="overlay-body">
-      <div class="card">
-        <div class="serif" style="font-size:17px; font-weight:700;">${escapeHtml(book.title)}</div>
-        <p class="hint" style="margin:10px 0 0;">별점과 밑줄은 지금 남겨도 되고, 책장에서 나중에 채워도 돼요.</p>
-      </div>
-
-      <div class="field-group" style="margin-top:16px;">
-        <span class="field-label">별점</span>
-        ${starPickerHtml("return-star-picker", 0)}
-      </div>
-      <div class="field-group">
-        <span class="field-label">밑줄 메모 (선택)</span>
-        <textarea class="input" id="return-memo-input" rows="3" placeholder="${escapeHtml(randomPrompt())}"></textarea>
-      </div>
-
-      <button type="button" class="btn btn-primary btn-block" id="return-save">저장하고 마치기</button>
-      <button type="button" class="btn btn-secondary btn-block" id="return-skip" style="margin-top:10px;">건너뛰기</button>
-    </div>
-  `;
-
-  overlayEl.querySelector("#detail-close").addEventListener("click", closeDetail);
-
-  let rating = 0;
-  wireStarPicker(overlayEl, "return-star-picker", (v) => (rating = v));
-
-  function finish() {
-    const read = pendingReturn.read;
-    pendingReturn = null;
-    markReturned(bookId, read);
-    onChange?.();
-    render(bookId, onChange);
-  }
-
-  overlayEl.querySelector("#return-save").addEventListener("click", () => {
-    if (rating) setBookRating(bookId, rating);
-    const memo = overlayEl.querySelector("#return-memo-input").value;
-    if (memo.trim()) setBookMemo(bookId, memo);
-    finish();
-  });
-  overlayEl.querySelector("#return-skip").addEventListener("click", finish);
 }
 
 function renderBorrowFlow(book, onChange) {
